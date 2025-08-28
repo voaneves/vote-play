@@ -45,6 +45,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      # This is the new step you wanted to add
+      - name: Run Gemini CLI
+        uses: google-github-actions/run-gemini-cli@v0.1.12
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          command: 'Summarize the latest changes.' # <-- IMPORTANT: Change this to your desired command
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
