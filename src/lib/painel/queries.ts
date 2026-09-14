@@ -19,6 +19,7 @@ export interface ShowRow {
   status: ShowStatus;
   join_code: string;
   vote_mode: VoteMode;
+  instagram_handle: string | null;
   round_duration_seconds: number;
   direct_request_price_cents: number;
   scheduled_for: string | null;
@@ -43,7 +44,7 @@ export interface RoundRow {
 }
 
 const SHOW_COLUMNS =
-  'id,title,venue,city,status,join_code,vote_mode,round_duration_seconds,direct_request_price_cents,scheduled_for,created_at';
+  'id,title,venue,city,status,join_code,vote_mode,instagram_handle,round_duration_seconds,direct_request_price_cents,scheduled_for,created_at';
 
 /**
  * Desembrulha a resposta do supabase-js.
@@ -105,7 +106,13 @@ export async function getShow(id: string): Promise<ShowRow> {
  */
 export async function createShow(
   ownerId: string,
-  input: { title: string; venue?: string; city?: string },
+  input: {
+    title: string;
+    venue?: string;
+    city?: string;
+    voteMode: VoteMode;
+    instagramHandle?: string | null;
+  },
 ): Promise<{ id: string; join_code: string }> {
   return unwrap(
     await getSupabase()
@@ -116,6 +123,8 @@ export async function createShow(
         venue: input.venue?.trim() || null,
         city: input.city?.trim() || null,
         status: 'draft',
+        vote_mode: input.voteMode,
+        instagram_handle: input.instagramHandle || null,
       })
       .select('id,join_code')
       .single<{ id: string; join_code: string }>(),
@@ -191,6 +200,28 @@ export async function settleRound(roundId: string, force = false) {
     p_force: force,
   });
   if (error) throw new Error(error.message);
+}
+
+export interface ParticipantRow {
+  instagram_handle: string;
+  nickname: string | null;
+  votos: number;
+  entrou_em: string;
+}
+
+/**
+ * Quem participou do show, com o @ declarado.
+ *
+ * É o que o modo Instagram entrega de fato: não existe API que confirme que
+ * alguém segue um perfil, então o valor está no registro — o artista cruza com
+ * os próprios seguidores se quiser.
+ */
+export async function listParticipants(showId: string): Promise<ParticipantRow[]> {
+  const { data, error } = await getSupabase().rpc('show_participants', {
+    p_show_id: showId,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ParticipantRow[];
 }
 
 /** Rede de segurança caso o pg_cron esteja fora: o painel faz a rodada andar. */

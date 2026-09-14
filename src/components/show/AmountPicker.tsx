@@ -61,7 +61,7 @@ export function AmountPicker({ show, candidate, submitting, onClose, onConfirm }
           </div>
 
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {show.voteMode === 'free_with_tip' ? (
+            {show.voteMode !== 'pix' ? (
               <>Seu voto vale 1 ponto. O valor é uma gorjeta para o artista.</>
             ) : (
               <>

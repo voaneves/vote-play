@@ -8,6 +8,7 @@ import { formatClock } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import {
   addSongsToShow,
+  listParticipants,
   closeRoundVoting,
   currentRound,
   getShow,
@@ -34,6 +35,12 @@ export default function ShowLive() {
   const show = useQuery({ queryKey: ['show', id], queryFn: () => getShow(id) });
   const songs = useQuery({ queryKey: ['songs'], queryFn: listSongs });
   const showSongs = useQuery({ queryKey: ['show-songs', id], queryFn: () => listShowSongs(id) });
+  const participants = useQuery({
+    queryKey: ['participants', id],
+    queryFn: () => listParticipants(id),
+    enabled: show.data?.vote_mode === 'instagram',
+  });
+
   const round = useQuery({
     queryKey: ['round', id],
     queryFn: () => currentRound(id),
@@ -227,6 +234,67 @@ export default function ShowLive() {
           </div>
         )}
       </section>
+
+      {/* quem participou — só faz sentido no modo Instagram */}
+      {show.data.vote_mode === 'instagram' && (
+        <section className="vp-surface mt-4 p-5">
+          <h2 className="font-semibold">
+            Quem votou{' '}
+            {participants.data && (
+              <span className="text-muted-foreground">({participants.data.length})</span>
+            )}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            O @ que cada pessoa declarou ao entrar. Não é verificação — nenhuma API do
+            Instagram informa se alguém segue um perfil. Cruze com seus seguidores se quiser.
+          </p>
+
+          {participants.data?.length === 0 && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Ninguém entrou ainda. Os @ aparecem aqui conforme a plateia chega.
+            </p>
+          )}
+
+          <ul className="mt-4 space-y-1.5">
+            {participants.data?.map((p) => (
+              <li
+                key={p.instagram_handle}
+                className="flex items-center gap-3 border-b border-border/50 py-1.5 text-sm last:border-0"
+              >
+                <a
+                  href={`https://instagram.com/${p.instagram_handle}`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="vp-focus min-w-0 flex-1 truncate text-primary hover:underline"
+                >
+                  @{p.instagram_handle}
+                </a>
+                <span className="tabular shrink-0 text-muted-foreground">
+                  {p.votos} {p.votos === 1 ? 'voto' : 'votos'}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {(participants.data?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const linhas = (participants.data ?? [])
+                  .map((p) => `@${p.instagram_handle}`)
+                  .join('\n');
+                void navigator.clipboard.writeText(linhas).then(
+                  () => toast.success('Lista copiada.'),
+                  () => toast.error('Não foi possível copiar.'),
+                );
+              }}
+              className="vp-focus mt-4 text-sm text-primary underline underline-offset-4"
+            >
+              Copiar todos os @
+            </button>
+          )}
+        </section>
+      )}
 
       {/* repertório do show */}
       <section className="vp-surface mt-4 p-5">

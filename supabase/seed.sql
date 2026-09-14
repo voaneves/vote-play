@@ -64,7 +64,7 @@ begin
   )
   values (
     v_owner, 'Ensaio Aberto', 'Bar do Zé', 'Palmas, TO', 'live', 'TESTE1',
-    'paid_weighted', 200, 20000, '{200,500,1000}', 100, 300, 3000
+    'pix', 200, 20000, '{200,500,1000}', 100, 300, 3000
   )
   returning id into v_show;
 

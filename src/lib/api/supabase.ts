@@ -27,6 +27,9 @@ function translate(error: { message: string; code?: string } | null, fallback: s
   if (/não está no ar|indisponível/i.test(message)) {
     throw new ApiError('Este show não está no ar.', 'show_not_live');
   }
+  if (/Informe seu @/i.test(message)) {
+    throw new ApiError('Informe seu @ do Instagram para votar.', 'instagram_required');
+  }
   if (/já votou/i.test(message)) {
     throw new ApiError('Você já votou nesta rodada.', 'already_voted');
   }
@@ -91,6 +94,20 @@ export const supabaseApi: VotePlayApi = {
 
   async getPaymentStatus() {
     throw new ApiError('Pagamentos entram na Fase 4.', 'unknown');
+  },
+
+  async setSessionInstagram(sessionId, handle) {
+    const { data, error } = await getSupabase().rpc('set_session_instagram', {
+      p_session_id: sessionId,
+      p_handle: handle,
+    });
+    if (error) {
+      if (/não parece|Informe seu @/i.test(error.message)) {
+        throw new ApiError('Esse @ não parece um perfil do Instagram.', 'invalid_handle');
+      }
+      translate(error, 'Não foi possível salvar seu @.');
+    }
+    return data as { instagramHandle: string };
   },
 
   /**

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { env } from '@/config/env';
-import { MOCK_DEMO_CODE, MOCK_FREE_CODE } from '@/lib/api';
+import { MOCK_DEMO_CODE, MOCK_FREE_CODE, MOCK_INSTAGRAM_CODE } from '@/lib/api';
 import { isValidJoinCode, normalizeJoinCode, JOIN_CODE_LENGTH } from '@/lib/joinCode';
 import { Ticket } from 'lucide-react';
 
@@ -72,6 +72,7 @@ export default function Landing() {
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             {[
               { code: MOCK_DEMO_CODE, label: 'voto por Pix' },
+              { code: MOCK_INSTAGRAM_CODE, label: 'voto por Instagram' },
               { code: MOCK_FREE_CODE, label: 'voto grátis' },
             ].map(({ code: demo, label }) => (
               <button

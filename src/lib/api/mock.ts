@@ -10,6 +10,8 @@ import type {
 import { isValidJoinCode } from '@/lib/joinCode';
 import {
   ApiError,
+  isValidInstagramHandle,
+  normalizeInstagramHandle,
   previewVoteWeight,
   type JoinResult,
   type RequestIntentInput,
@@ -46,10 +48,17 @@ interface MockShow {
   queue: DirectRequest[];
   /** sessionId → id da candidata em que votou nesta rodada */
   votes: Map<string, string>;
+  /** sessionId → @ declarado */
+  handles: Map<string, string>;
   listeners: Set<() => void>;
 }
 
-function makeShow(joinCode: string, title: string, mode: VoteMode): ShowPublic {
+function makeShow(
+  joinCode: string,
+  title: string,
+  mode: VoteMode,
+  instagramHandle: string | null = null,
+): ShowPublic {
   return {
     id: uid(),
     joinCode,
@@ -59,11 +68,12 @@ function makeShow(joinCode: string, title: string, mode: VoteMode): ShowPublic {
     coverUrl: null,
     status: 'live',
     voteMode: mode,
+    instagramHandle,
     voteMinCents: 200,
     voteMaxCents: 20000,
     voteSuggestedCents: [200, 500, 1000],
     centsPerPoint: 100,
-    freeVotesPerRound: mode === 'paid_weighted' ? 0 : 1,
+    freeVotesPerRound: mode === 'pix' ? 0 : 1,
     roundDurationSeconds: 300,
     directRequestEnabled: true,
     directRequestPriceCents: 3000,
@@ -81,7 +91,7 @@ function makeRound(show: ShowPublic, seq: number): Round {
       artistName: song.artistName,
       position: i,
       weight,
-      amountCents: show.voteMode === 'paid_weighted' ? weight * show.centsPerPoint : 0,
+      amountCents: show.voteMode === 'pix' ? weight * show.centsPerPoint : 0,
       votesCount: 2 + Math.floor(Math.random() * 6),
     };
   });
@@ -103,20 +113,27 @@ function makeRound(show: ShowPublic, seq: number): Round {
   };
 }
 
-function createMockShow(joinCode: string, title: string, mode: VoteMode): MockShow {
-  const show = makeShow(joinCode, title, mode);
+function createMockShow(
+  joinCode: string,
+  title: string,
+  mode: VoteMode,
+  instagramHandle: string | null = null,
+): MockShow {
+  const show = makeShow(joinCode, title, mode, instagramHandle);
   return {
     show,
     round: makeRound(show, 1),
     queue: [],
     votes: new Map(),
     listeners: new Set(),
+    handles: new Map(),
   };
 }
 
 const SHOWS: Record<string, MockShow> = {
-  TESTE1: createMockShow('TESTE1', 'Ensaio Aberto', 'paid_weighted'),
-  FREE01: createMockShow('FREE01', 'Sarau da Casa', 'free_with_tip'),
+  TESTE1: createMockShow('TESTE1', 'Ensaio Aberto', 'pix'),
+  FREE01: createMockShow('FREE01', 'Sarau da Casa', 'free'),
+  GRAM99: createMockShow('GRAM99', 'Quinta Acústica', 'instagram', 'banda.oficial'),
 };
 
 if (import.meta.env.DEV) {
@@ -143,6 +160,50 @@ SHOWS.TESTE1.queue.push({
 });
 
 const byId = (showId: string) => Object.values(SHOWS).find((s) => s.show.id === showId);
+
+/**
+ * Uma sessão por aparelho por show, como o `device_hash` faz no banco — e o @
+ * declarado sobrevive ao recarregar a página, como sobrevive no Postgres.
+ *
+ * Sem isso o mock seria mais frouxo que a realidade, e o portão pareceria
+ * quebrado num teste que na verdade estava testando o mock errado.
+ */
+const deviceSessions = new Map<string, string>();
+const sessionKey = (code: string) => `vp:mock:session:${code}`;
+const handleKey = (code: string) => `vp:mock:handle:${code}`;
+
+function readLocal(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writeLocal(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* modo privado: a sessão vira efêmera, como no navegador do banco */
+  }
+}
+
+function sessionForDevice(s: MockShow): string {
+  const cached = deviceSessions.get(s.show.joinCode);
+  if (cached) return cached;
+
+  const stored = readLocal(sessionKey(s.show.joinCode));
+  const id = stored ?? uid();
+  if (!stored) writeLocal(sessionKey(s.show.joinCode), id);
+  deviceSessions.set(s.show.joinCode, id);
+
+  const storedHandle = readLocal(handleKey(s.show.joinCode));
+  if (storedHandle) s.handles.set(id, storedHandle);
+
+  return id;
+}
+
+const byIdHasSession = (s: MockShow, sessionId: string) =>
+  deviceSessions.get(s.show.joinCode) === sessionId;
 const notify = (s: MockShow) => s.listeners.forEach((fn) => fn());
 
 function addWeight(s: MockShow, candidateId: string, weight: number, cents: number) {
@@ -161,8 +222,8 @@ setInterval(() => {
   for (const s of Object.values(SHOWS)) {
     if (s.round.status !== 'open') continue;
     const c = s.round.candidates[Math.floor(Math.random() * s.round.candidates.length)];
-    const w = s.show.voteMode === 'paid_weighted' ? 1 + Math.floor(Math.random() * 5) : 1;
-    addWeight(s, c.id, w, s.show.voteMode === 'paid_weighted' ? w * s.show.centsPerPoint : 0);
+    const w = s.show.voteMode === 'pix' ? 1 + Math.floor(Math.random() * 5) : 1;
+    addWeight(s, c.id, w, s.show.voteMode === 'pix' ? w * s.show.centsPerPoint : 0);
     notify(s);
   }
 }, 4000);
@@ -224,9 +285,17 @@ export const mockApi: VotePlayApi = {
     await delay(250);
     const s = SHOWS[joinCode.toUpperCase()];
     if (!s) throw new ApiError('Código do show não encontrado.', 'show_not_found');
+    // o mock guarda o @ por aparelho, como o banco faz por device_hash
+    const sessionId = sessionForDevice(s);
     const result: JoinResult = {
       show: s.show,
-      session: { id: uid(), showId: s.show.id, nickname: null, freeVotesUsed: 0 },
+      session: {
+        id: sessionId,
+        showId: s.show.id,
+        nickname: null,
+        freeVotesUsed: 0,
+        instagramHandle: s.handles.get(sessionId) ?? null,
+      },
     };
     return result;
   },
@@ -269,8 +338,11 @@ export const mockApi: VotePlayApi = {
     await delay(200);
     const s = byId(input.showId);
     if (!s) throw new ApiError('Show indisponível.', 'show_not_found');
-    if (s.show.voteMode === 'paid_weighted') {
+    if (s.show.voteMode === 'pix') {
       throw new ApiError('Neste show todo voto passa pelo Pix.', 'free_votes_exhausted');
+    }
+    if (s.show.voteMode === 'instagram' && !s.handles.has(input.sessionId)) {
+      throw new ApiError('Informe seu @ do Instagram para votar.', 'instagram_required');
     }
     if (s.round.status !== 'open') {
       throw new ApiError('Esta rodada já foi encerrada.', 'round_closed');
@@ -320,6 +392,23 @@ export const mockApi: VotePlayApi = {
     }, 5000);
 
     return { payment, request };
+  },
+
+  async setSessionInstagram(sessionId, handle) {
+    await delay(200);
+    const normalized = normalizeInstagramHandle(handle);
+    if (!isValidInstagramHandle(handle)) {
+      throw new ApiError('Esse @ não parece um perfil do Instagram.', 'invalid_handle');
+    }
+    for (const s of Object.values(SHOWS)) {
+      if (s.handles.has(sessionId) || byIdHasSession(s, sessionId)) {
+        s.handles.set(sessionId, normalized);
+        writeLocal(handleKey(s.show.joinCode), normalized);
+        notify(s);
+        break;
+      }
+    }
+    return { instagramHandle: normalized };
   },
 
   async getPaymentStatus(paymentId) {

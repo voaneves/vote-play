@@ -13,6 +13,7 @@ import { CandidateCard } from '@/components/show/CandidateCard';
 import { RoundTimer } from '@/components/show/RoundTimer';
 import { AmountPicker } from '@/components/show/AmountPicker';
 import { QueueList } from '@/components/show/QueueList';
+import { InstagramGate } from '@/components/show/InstagramGate';
 import { ListMusic, Music4 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { RoundCandidate } from '@/types/domain';
@@ -32,6 +33,8 @@ export default function ShowPage() {
 function ShowScreen() {
   const { status, error, show, session, state, clockOffsetMs, retry } = useShow();
   const [tab, setTab] = useState<Tab>('voting');
+  // o @ declarado nesta visita; o join já traz o de visitas anteriores
+  const [handle, setHandle] = useState<string | null>(null);
 
   if (status === 'loading') {
     return (
@@ -52,6 +55,12 @@ function ShowScreen() {
     );
   }
 
+  // O portão só aparece no modo instagram e só até a pessoa declarar o @.
+  const needsGate =
+    show.voteMode === 'instagram' &&
+    show.instagramHandle !== null &&
+    (handle ?? session.instagramHandle) === null;
+
   return (
     <div className="flex min-h-[100dvh] flex-col">
       <header className="px-4 pb-2 pt-6">
@@ -70,7 +79,15 @@ function ShowScreen() {
 
       <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28">
         {tab === 'voting' ? (
-          <VotingTab clockOffsetMs={clockOffsetMs} />
+          needsGate ? (
+            <InstagramGate
+              profileHandle={show.instagramHandle!}
+              sessionId={session.id}
+              onDone={setHandle}
+            />
+          ) : (
+            <VotingTab clockOffsetMs={clockOffsetMs} />
+          )
         ) : (
           <RequestTab />
         )}
@@ -163,7 +180,7 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
   // No modo pago o voto sempre passa pelo Pix. Nos modos gratuitos o toque já
   // registra o voto — abrir um seletor de valor ali seria pedir dinheiro por
   // algo que é de graça.
-  const isPaid = show.voteMode === 'paid_weighted';
+  const isPaid = show.voteMode === 'pix';
   const alreadyVoted = round.myVoteCandidateId !== null;
   const canVoteFree = !isPaid && round.freeVotesLeft > 0 && !alreadyVoted;
   const ranked = [...round.candidates].sort((a, b) => b.weight - a.weight);

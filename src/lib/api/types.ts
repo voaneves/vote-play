@@ -17,6 +17,8 @@ export class ApiError extends Error {
       | 'invalid_amount'
       | 'free_votes_exhausted'
       | 'already_voted'
+      | 'instagram_required'
+      | 'invalid_handle'
       | 'rate_limited'
       | 'unknown',
   ) {
@@ -73,6 +75,9 @@ export interface VotePlayApi {
   /** Polling de fallback enquanto o QR está na tela (o webhook é o caminho rápido). */
   getPaymentStatus(paymentId: string): Promise<Payment>;
 
+  /** Registra o @ declarado pela pessoa (portão do modo instagram). */
+  setSessionInstagram(sessionId: string, handle: string): Promise<{ instagramHandle: string }>;
+
   /** Assina o estado do show. Retorna a função de cancelamento. */
   subscribeShow(
     showId: string,
@@ -90,7 +95,22 @@ export function previewVoteWeight(
   amountCents: number,
   centsPerPoint: number,
 ): number {
-  if (mode === 'free_with_tip') return 1;
+  if (mode !== 'pix') return 1;
   if (amountCents <= 0) return 1;
   return Math.max(1, Math.floor(amountCents / Math.max(1, centsPerPoint)));
+}
+
+/** Tira o @, espaços e URL colada. Espelha normalize_instagram_handle do banco. */
+export function normalizeInstagramHandle(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/(www\.)?instagram\.com\//, '')
+    .replace(/[/?].*$/, '')
+    .replace(/^@+/, '')
+    .trim();
+}
+
+export function isValidInstagramHandle(input: string): boolean {
+  return /^[a-z0-9_](\.?[a-z0-9_]){0,29}$/.test(normalizeInstagramHandle(input));
 }

@@ -29,6 +29,8 @@ export const api: VotePlayApi = {
   castFreeVote: async (input) => (await provider()).castFreeVote(input),
   createRequestIntent: async (input) => (await provider()).createRequestIntent(input),
   getPaymentStatus: async (paymentId) => (await provider()).getPaymentStatus(paymentId),
+  setSessionInstagram: async (sessionId, handle) =>
+    (await provider()).setSessionInstagram(sessionId, handle),
 
   subscribeShow(showId, sessionId, onState) {
     let unsubscribe: (() => void) | null = null;
@@ -51,3 +53,4 @@ export * from './types';
 /** Códigos dos shows de demonstração — existem só no provider mock. */
 export const MOCK_DEMO_CODE = 'TESTE1';
 export const MOCK_FREE_CODE = 'FREE01';
+export const MOCK_INSTAGRAM_CODE = 'GRAM99';

@@ -19,7 +19,7 @@ declare
 begin
   -- show em modo gratuito
   insert into shows (owner_id, title, status, vote_mode, free_votes_per_round)
-  values (v_owner, 'Show Gratuito', 'live', 'free_with_tip', 1)
+  values (v_owner, 'Show Gratuito', 'live', 'free', 1)
   returning id, join_code into v_show, v_code;
   insert into show_songs (show_id, song_id) select v_show, id from songs where owner_id = v_owner limit 3;
   select array_agg(song_id) into v_ids from show_songs where show_id = v_show;
@@ -108,7 +108,7 @@ begin
   -- sem inventar código: o trigger gera um válido pelo alfabeto Crockford.
   -- Escrever 'PAGO01' à mão quebra na constraint, porque O não pertence ao alfabeto.
   insert into shows (owner_id, title, status, vote_mode)
-  values (v_owner, 'Show Pago', 'live', 'paid_weighted')
+  values (v_owner, 'Show Pago', 'live', 'pix')
   returning id, join_code into v_show, v_code;
   insert into show_songs (show_id, song_id) select v_show, id from songs where owner_id = v_owner limit 2;
   select array_agg(song_id) into v_ids from show_songs where show_id = v_show;

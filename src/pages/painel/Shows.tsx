@@ -5,8 +5,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/context';
 import { createShow, listShows } from '@/lib/painel/queries';
+import { isValidInstagramHandle } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import type { ShowStatus } from '@/types/domain';
+import type { ShowStatus, VoteMode } from '@/types/domain';
 
 const STATUS_LABEL: Record<ShowStatus, string> = {
   draft: 'Rascunho',
@@ -22,15 +23,24 @@ export default function Shows() {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [venue, setVenue] = useState('');
+  const [voteMode, setVoteMode] = useState<VoteMode>('pix');
+  const [instagramHandle, setInstagramHandle] = useState('');
 
   const shows = useQuery({ queryKey: ['shows'], queryFn: listShows });
 
   const create = useMutation({
-    mutationFn: () => createShow(userId!, { title, venue }),
+    mutationFn: () =>
+      createShow(userId!, {
+        title,
+        venue,
+        voteMode,
+        instagramHandle: voteMode === 'instagram' ? instagramHandle : null,
+      }),
     onSuccess: (row) => {
       toast.success(`Show criado. Código: ${row.join_code}`);
       setTitle('');
       setVenue('');
+      setInstagramHandle('');
       void queryClient.invalidateQueries({ queryKey: ['shows'] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -39,6 +49,10 @@ export default function Shows() {
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim() || !userId) return;
+    if (voteMode === 'instagram' && !isValidInstagramHandle(instagramHandle)) {
+      toast.error('Informe o @ do Instagram que a plateia deve seguir.');
+      return;
+    }
     create.mutate();
   };
 
@@ -66,6 +80,56 @@ export default function Shows() {
           aria-label="Local"
           className={field}
         />
+        <fieldset>
+          <legend className="mb-2 text-sm text-muted-foreground">Como a plateia vota</legend>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(
+              [
+                { value: 'pix', label: 'Pix', hint: 'Todo voto é pago' },
+                { value: 'instagram', label: 'Instagram', hint: 'Grátis, pede o @' },
+                { value: 'free', label: 'Grátis', hint: 'Sem portão' },
+              ] as { value: VoteMode; label: string; hint: string }[]
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setVoteMode(opt.value)}
+                aria-pressed={voteMode === opt.value}
+                className={cn(
+                  'vp-focus rounded-xl border p-3 text-left transition',
+                  voteMode === opt.value
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/40',
+                )}
+              >
+                <span className="block font-medium">{opt.label}</span>
+                <span className="block text-xs text-muted-foreground">{opt.hint}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {voteMode === 'instagram' && (
+          <div>
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4">
+              <span aria-hidden className="text-muted-foreground">@</span>
+              <input
+                value={instagramHandle}
+                onChange={(e) => setInstagramHandle(e.target.value)}
+                autoCapitalize="none"
+                spellCheck={false}
+                placeholder="perfil.que.a.plateia.segue"
+                aria-label="Perfil do Instagram"
+                className="w-full bg-transparent py-3 outline-none placeholder:text-muted-foreground/50"
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Não dá para verificar se a pessoa seguiu — nenhuma API do Instagram informa
+              isso. O que o app faz é levar ao seu perfil e registrar o @ de quem votou.
+            </p>
+          </div>
+        )}
+
         <Button type="submit" disabled={create.isPending} className="w-full sm:w-auto">
           {create.isPending ? 'Criando…' : 'Criar show'}
         </Button>

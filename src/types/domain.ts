@@ -4,7 +4,13 @@
  */
 
 export type ShowStatus = 'draft' | 'ready' | 'live' | 'paused' | 'ended' | 'cancelled';
-export type VoteMode = 'paid_weighted' | 'free_plus_boost' | 'free_with_tip';
+/**
+ * Como o show deixa a plateia votar.
+ *   pix       — todo voto passa por pagamento
+ *   instagram — voto grátis, atrás do portão do perfil
+ *   free      — voto grátis sem portão
+ */
+export type VoteMode = 'pix' | 'instagram' | 'free';
 export type RoundStatus = 'draft' | 'open' | 'closed' | 'settled' | 'cancelled';
 export type VoteStatus = 'pending' | 'confirmed' | 'expired' | 'refunded' | 'voided';
 export type RequestStatus =
@@ -34,6 +40,8 @@ export interface ShowPublic {
   status: ShowStatus;
 
   voteMode: VoteMode;
+  /** Perfil que a plateia é convidada a seguir. Só existe no modo instagram. */
+  instagramHandle: string | null;
   voteMinCents: number;
   voteMaxCents: number;
   voteSuggestedCents: number[];
@@ -109,6 +117,14 @@ export interface AudienceSession {
   showId: string;
   nickname: string | null;
   freeVotesUsed: number;
+  /**
+   * O @ que a pessoa declarou.
+   *
+   * Declaração, não verificação: nenhuma API do Instagram informa se alguém
+   * segue um perfil (a Basic Display foi desligada em set/2025). O valor deste
+   * campo é o registro para o artista, não uma trava.
+   */
+  instagramHandle: string | null;
 }
 
 /**

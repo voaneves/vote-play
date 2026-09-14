@@ -14,11 +14,24 @@ export default function SignIn() {
       <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-6 text-center">
         <h1 className="text-2xl font-bold">Painel indisponível</h1>
         <p className="mt-3 text-muted-foreground">
-          O painel do artista precisa do Supabase configurado. Preencha
-          <code className="mx-1 rounded bg-muted px-1.5 py-0.5 text-sm">VITE_SUPABASE_URL</code>
-          e
-          <code className="mx-1 rounded bg-muted px-1.5 py-0.5 text-sm">VITE_SUPABASE_ANON_KEY</code>
-          no <code className="rounded bg-muted px-1.5 py-0.5 text-sm">.env</code>.
+          O painel precisa do Supabase configurado. Faltam variáveis de ambiente.
+        </p>
+        <ul className="mx-auto mt-4 space-y-1.5 text-left text-sm text-muted-foreground">
+          <li>
+            <code className="rounded bg-muted px-1.5 py-0.5">VITE_API_PROVIDER</code> = supabase
+          </li>
+          <li>
+            <code className="rounded bg-muted px-1.5 py-0.5">VITE_SUPABASE_URL</code>
+          </li>
+          <li>
+            <code className="rounded bg-muted px-1.5 py-0.5">VITE_SUPABASE_PUBLISHABLE_KEY</code>
+          </li>
+        </ul>
+        <p className="mt-5 text-sm text-muted-foreground">
+          No <code className="rounded bg-muted px-1.5 py-0.5">.env</code> para rodar local. Em
+          produção, nas variáveis do GitHub Actions — e lembre que o Vite embute isso no
+          <strong className="text-foreground"> build</strong>: mudar a variável só tem efeito
+          no próximo deploy.
         </p>
       </main>
     );
