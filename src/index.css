@@ -1,142 +1,144 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/*
+  Design system do Vote Play — dark-first.
+  Show é ambiente escuro: um app claro cega a plateia e denuncia quem está no celular.
+
+  Os tokens ficam em :root (podem ser trocados em runtime) e são expostos ao Tailwind
+  por `@theme inline`, que gera as utilities bg-*, text-*, border-* correspondentes.
 */
 
-@layer base {
-  :root {
-    --background: 34 15% 96.7%; /* #F7F4F3 */
-    --foreground: 23 9% 35.3%; /* #564D4A */
+:root {
+  /* superfícies */
+  --background: hsl(344 32% 7%);
+  --foreground: hsl(20 20% 96%);
+  --card: hsl(344 26% 11%);
+  --card-foreground: hsl(20 20% 96%);
+  --popover: hsl(344 28% 10%);
+  --popover-foreground: hsl(20 20% 96%);
+  --muted: hsl(344 16% 18%);
+  --muted-foreground: hsl(20 10% 68%);
+  --border: hsl(344 18% 20%);
+  --input: hsl(344 18% 20%);
+  --ring: hsl(6 89% 58%);
 
-    --card: 0 0% 100%;
-    --card-foreground: 23 9% 35.3%;
+  /* marca */
+  --primary: hsl(6 89% 58%); /* #F24333 — ação */
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(344 22% 16%);
+  --secondary-foreground: hsl(20 20% 96%);
+  --accent: hsl(344 42% 27%); /* #5B2333 — vinho da marca */
+  --accent-foreground: hsl(20 20% 96%);
+  --destructive: hsl(359 69% 48%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --success: hsl(152 60% 42%);
+  --success-foreground: hsl(0 0% 100%);
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 23 9% 35.3%;
+  --radius: 0.875rem;
+}
 
-    --primary: 344 42% 26.7%; /* #5B2333 */
-    --primary-foreground: 210 40% 98%;
-    
-    --primary-dark: 344 42% 26.7%; /* #5B2333 */
-    --background-light: 34 15% 96.7%; /* #F7F4F3 */
-    --text-detail: 23 9% 35.3%; /* #564D4A */
-    --highlight-action: 6 89% 58%; /* #F24333 */
-    --secondary-highlight: 359 69% 41.2%; /* #BA1B1D */
+/* Tema claro disponível para o painel do artista (ambiente de escritório). */
+.light {
+  --background: hsl(34 15% 97%);
+  --foreground: hsl(23 12% 20%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(23 12% 20%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(23 12% 20%);
+  --muted: hsl(30 10% 92%);
+  --muted-foreground: hsl(23 9% 45%);
+  --border: hsl(30 10% 87%);
+  --input: hsl(30 10% 87%);
+  --secondary: hsl(30 12% 94%);
+  --secondary-foreground: hsl(23 12% 20%);
+  --accent: hsl(344 42% 27%);
+  --accent-foreground: hsl(0 0% 100%);
+}
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 344 42% 26.7%;
-    --foreground: 210 40% 98%;
-
-    --card: 344 42% 26.7%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 344 42% 26.7%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 344 42% 26.7%;
-    
-    --primary-dark: 210 40% 98%;
-    --background-light: 344 42% 26.7%;
-    --text-detail: 210 40% 98%;
-    --highlight-action: 6 89% 58%;
-    --secondary-highlight: 359 69% 41.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
 }
 
 @layer base {
-  * {
-    @apply border-border;
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    /* brilho sutil no topo, como luz de palco */
+    background-image: radial-gradient(
+      ellipse 90% 55% at 50% -10%,
+      color-mix(in oklab, var(--color-accent) 50%, transparent),
+      transparent 70%
+    );
+    background-attachment: fixed;
   }
-  
-  .animate-pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Números de placar e cronômetro não podem "pular" de largura. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+@utility vp-surface {
+  border-radius: calc(var(--radius) + 0.125rem);
+  border: 1px solid color-mix(in oklab, var(--color-border) 70%, transparent);
+  background-color: color-mix(in oklab, var(--color-card) 80%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+@layer components {
+  .vp-focus:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow:
+      0 0 0 2px var(--color-background),
+      0 0 0 4px var(--color-ring);
   }
-  
-  @keyframes pulse {
-    50% {
-      opacity: .5;
-    }
-  }
-  
-  .animate-bounce {
-    animation: bounce 1s infinite;
-  }
-  
-  @keyframes bounce {
-    0%, 100% {
-      transform: translateY(-25%);
-      animation-timing-function: cubic-bezier(0.8,0,1,1);
-    }
-    50% {
-      transform: none;
-      animation-timing-function: cubic-bezier(0,0,0.2,1);
-    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

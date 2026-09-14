@@ -1,31 +1,33 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { fileURLToPath } from 'url'; // Import para resolver caminhos em ESM
-import { componentTagger } from "lovable-tagger";
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import tailwindcss from '@tailwindcss/vite';
 
-// Helper para obter __dirname em módulos ES (padrão do Vite)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  // 1. Essencial para o deploy em um subdiretório (GitHub Pages)
-  base: "/vote-play/",
+export default defineConfig({
+  /**
+   * Subdiretório do GitHub Pages. Ao migrar para domínio próprio (Fase 7 do plan.md),
+   * trocar por '/' — o basename do router lê este mesmo valor via import.meta.env.BASE_URL.
+   */
+  base: '/vote-play/',
 
   server: {
-    host: "::", // Permite acesso na rede local
+    host: '::',
     port: 8080,
   },
-  plugins: [
-    react(),
-    // Plugin que roda apenas em modo de desenvolvimento
-    mode === 'development' && componentTagger(),
-  ].filter(Boolean), // Remove valores falsos (como o plugin desativado) do array
+
+  plugins: [react(), tailwindcss()],
+
   resolve: {
     alias: {
-      // 2. Forma correta de definir o alias "@" em projetos com ES Modules
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
     },
   },
-}));
+
+  build: {
+    target: 'es2020',
+    sourcemap: false,
+  },
+});

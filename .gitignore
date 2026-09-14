@@ -49,3 +49,9 @@ test-results/
 
 # Planejamento interno (não versionado)
 plan.md
+
+# Vite (arquivos temporários de config)
+vite.config.ts.timestamp-*
+
+# Saída do app do Claude (capturas e arquivos entregues no chat)
+Claude outputs/

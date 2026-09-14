@@ -1,28 +1,20 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+name: Deploy para GitHub Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
-    branches: ["main"] # Change to "master" if that's your default branch
-
-  # Allows you to run this workflow manually from the Actions tab
+    branches: ['main']
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just building and deploying
   deploy:
     environment:
       name: github-pages
@@ -32,28 +24,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Your project uses npm and vite, so we need to set up Node.js
-      - name: Set up Node
+      - name: Configurar Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # Use a version compatible with your project
+          node-version: 22
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm install
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
 
       - name: Build
+        env:
+          # Chaves públicas por design — a segurança fica na RLS do Postgres.
+          # A service_role NUNCA entra no bundle.
+          VITE_API_PROVIDER: ${{ vars.VITE_API_PROVIDER || 'mock' }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
-      - name: Setup Pages
+      - name: Fallback de SPA para links profundos
+        # GitHub Pages não tem rewrite: /vote-play/s/DEMO01 devolve 404.
+        # Servindo o próprio index.html como 404.html, a URL é preservada e o router assume.
+        run: cp dist/index.html dist/404.html
+
+      - name: Configurar Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Enviar artefato
         uses: actions/upload-pages-artifact@v3
         with:
-          # This should match the output directory from your build step
           path: './dist'
 
-      - name: Deploy to GitHub Pages
+      - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4
