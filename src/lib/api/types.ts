@@ -48,7 +48,7 @@ export interface RequestIntentInput {
 
 /**
  * Contrato único entre a UI e o backend.
- * A implementação `mock` roda tudo em memória; a `supabase` chega na Fase 1/3.
+ * A implementação `mock` roda tudo em memória; a `supabase` chega na Fase 1/4.
  * Nenhum componente deve falar com Supabase diretamente.
  */
 export interface VotePlayApi {

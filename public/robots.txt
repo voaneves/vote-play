@@ -1,14 +1,8 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# Vote Play
+# A tela de cada show é efêmera e só existe enquanto ele acontece —
+# não há nada aqui que valha indexar.
 User-agent: *
-Allow: /
+Disallow: /s/
+Disallow: /telao/
+Disallow: /painel
+Allow: /$

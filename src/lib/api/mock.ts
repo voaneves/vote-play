@@ -122,7 +122,7 @@ setInterval(() => {
   notify();
 }, 4000);
 
-/** Fecha a rodada no tempo e abre a próxima, como o cron fará na Fase 2. */
+/** Fecha a rodada no tempo e abre a próxima, como o cron fará na Fase 3. */
 setInterval(() => {
   if (round.status !== 'open' || !round.closesAt) return;
   if (new Date(round.closesAt).getTime() > Date.now()) return;

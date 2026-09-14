@@ -59,21 +59,21 @@ export const supabaseApi: VotePlayApi = {
 
   async createVoteIntent(_input: VoteIntentInput) {
     throw new ApiError(
-      'O pagamento via Pix entra na Fase 3. Use VITE_API_PROVIDER=mock para ver o fluxo completo.',
+      'O pagamento via Pix entra na Fase 4. Use VITE_API_PROVIDER=mock para ver o fluxo completo.',
       'unknown',
     );
   },
 
   async castFreeVote() {
-    throw new ApiError('Voto sem pagamento entra na Fase 2.', 'unknown');
+    throw new ApiError('Voto sem pagamento entra na Fase 3.', 'unknown');
   },
 
   async createRequestIntent(_input: RequestIntentInput) {
-    throw new ApiError('O pedido direto com Pix entra na Fase 3.', 'unknown');
+    throw new ApiError('O pedido direto com Pix entra na Fase 4.', 'unknown');
   },
 
   async getPaymentStatus() {
-    throw new ApiError('Pagamentos entram na Fase 3.', 'unknown');
+    throw new ApiError('Pagamentos entram na Fase 4.', 'unknown');
   },
 
   /**

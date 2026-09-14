@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Vote Play — Brandkit</title>
+<style>
+  @page { size: A4 portrait; margin: 0; }
+
+  :root{
+    --noite:#180C0F; --palco:#231519; --bastidor:#35272A; --contorno:#3C2A2F;
+    --luz:#F7F4F3; --nevoa:#B6ABA5; --coral:#F34835; --vinho:#622837;
+    --brasa:#B12023; --alerta:#E15B5D; --confirmado:#2BAB6F;
+    --display: Archivo, "DejaVu Sans", system-ui, sans-serif;
+    --texto: "DejaVu Sans", system-ui, -apple-system, sans-serif;
+    --mono: "DejaVu Sans Mono", ui-monospace, monospace;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--noite);color:var(--luz);
+    font-family:var(--texto);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  .page{
+    width:210mm;height:297mm;padding:20mm 18mm;position:relative;
+    page-break-after:always;overflow:hidden;background:var(--noite);
+    display:flex;flex-direction:column;
+  }
+  .page:last-child{page-break-after:auto}
+
+  .num{position:absolute;bottom:12mm;right:18mm;font-size:8.5pt;color:#6E5C60;
+    font-variant-numeric:tabular-nums}
+  .foot{position:absolute;bottom:12mm;left:18mm;font-size:8.5pt;color:#6E5C60;
+    letter-spacing:.14em;text-transform:uppercase}
+
+  h1{font-family:var(--display);font-size:34pt;line-height:1.05;margin:0 0 6mm;
+    font-weight:800;letter-spacing:-.025em}
+  h2{font-family:var(--display);font-size:11pt;margin:0 0 4mm;font-weight:700;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--coral)}
+  h3{font-size:12.5pt;margin:0 0 2mm;font-weight:700}
+  p{font-size:10.5pt;line-height:1.62;margin:0 0 4mm;color:#DED5D2;max-width:150mm}
+  .lead{font-size:13pt;line-height:1.55;color:var(--luz)}
+  .dim{color:var(--nevoa)}
+  small{font-size:8.5pt;color:#8E7B7F;line-height:1.5;display:block}
+
+  .rule{height:1px;background:var(--contorno);margin:6mm 0}
+  .card{background:var(--palco);border:1px solid var(--contorno);border-radius:5mm;padding:6mm}
+  .page:nth-child(8) .card{padding:5mm}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}
+
+  /* --- capa --- */
+  .cover{justify-content:center;
+    background-image:radial-gradient(ellipse 85% 55% at 50% 0%, #4A1E2B 0%, transparent 68%)}
+  .cover h1{font-size:62pt;margin-bottom:4mm}
+  .bars{display:flex;align-items:flex-end;gap:5mm;height:26mm;margin-bottom:10mm}
+  .bars i{display:block;width:9mm;border-radius:4.5mm;background:var(--coral)}
+
+  /* --- cores --- */
+  .swatch{border-radius:4mm;overflow:hidden;border:1px solid var(--contorno)}
+  .swatch .chip{height:26mm}
+  .swatch .meta{padding:3.5mm 4mm;background:var(--palco)}
+  .swatch .nome{font-weight:700;font-size:10.5pt}
+  .swatch .hex{font-family:var(--mono);font-size:8.5pt;color:var(--nevoa);margin-top:1mm}
+  .swatch .papel{font-size:8.5pt;color:#9C8A8E;margin-top:1.5mm;line-height:1.45}
+
+  table{width:100%;border-collapse:collapse;font-size:9.5pt}
+  th{text-align:left;font-size:8pt;text-transform:uppercase;letter-spacing:.12em;
+    color:var(--nevoa);padding:0 0 2.5mm;font-weight:600;border-bottom:1px solid var(--contorno)}
+  td{padding:2.6mm 0;border-bottom:1px solid #2C1D21;vertical-align:top}
+  .ok{color:var(--confirmado);font-weight:700}
+  .no{color:var(--alerta);font-weight:700}
+  .tab{font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:9pt}
+
+  .do-dont{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:3mm}
+  .do{border-left:3px solid var(--confirmado);padding-left:4mm}
+  .dont{border-left:3px solid var(--alerta);padding-left:4mm}
+  .do h3,.dont h3{font-size:9pt;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2.5mm}
+  .do h3{color:var(--confirmado)} .dont h3{color:var(--alerta)}
+  .do p,.dont p{font-size:9.5pt;margin-bottom:2.5mm}
+  .quote{font-style:italic;color:var(--luz)}
+
+  pre{background:#11070A;border:1px solid var(--contorno);border-radius:3mm;
+    padding:4.5mm;font-family:var(--mono);font-size:7.8pt;line-height:1.6;
+    color:#CFC2C4;overflow:hidden;margin:0}
+  code{font-family:var(--mono);font-size:9pt;color:var(--coral)}
+
+  .arq{display:flex;gap:5mm;align-items:flex-start;margin-bottom:5mm}
+  .arq .sel{flex:0 0 22mm;height:22mm;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-family:var(--display);font-size:20pt;font-weight:800}
+  .scale-row{display:flex;align-items:baseline;gap:5mm;padding:1.8mm 0;
+    border-bottom:1px solid #2C1D21}
+  .scale-row .lbl{flex:0 0 42mm;font-size:8pt;color:var(--nevoa);
+    text-transform:uppercase;letter-spacing:.1em}
+</style>
+</head>
+<body>
+
+<!-- 1 ------------------------------------------------------------------ -->
+<section class="page cover">
+  <div class="bars"><i style="height:10mm"></i><i style="height:18mm"></i><i style="height:26mm"></i></div>
+  <h1>Vote&nbsp;Play</h1>
+  <p class="lead" style="max-width:120mm">
+    Guia de marca — logo, cores, tipografia, arquétipos e voz.
+  </p>
+  <div class="rule" style="max-width:60mm"></div>
+  <small>Versão 1 · Setembro de 2026 · Documento vivo, revisado a cada fase do produto</small>
+  <div class="foot">Brandkit</div>
+</section>
+
+<!-- 2 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Essência</h2>
+  <h1 style="font-size:28pt">A próxima música<br>é por sua conta.</h1>
+
+  <p class="lead">
+    O Vote Play transforma uma plateia em curadora. Em vez de assistir ao show que alguém
+    montou, cada pessoa decide — com o próprio dinheiro — o que vem a seguir.
+  </p>
+
+  <div class="rule"></div>
+
+  <div class="grid2" style="gap:7mm">
+    <div>
+      <h3>Para quem</h3>
+      <p>Artistas que tocam em bar, casa de show e evento fechado, e a plateia que está lá,
+      com o celular na mão e vontade de participar.</p>
+      <h3>O que resolve</h3>
+      <p>O pedido de música hoje é um grito no meio da canção, um papel amassado ou um Pix
+      no escuro sem retorno. Vira uma disputa visível, justa e instantânea.</p>
+    </div>
+    <div>
+      <h3>A promessa</h3>
+      <p>Você paga, e em segundos vê a barra da sua música subir no telão. A distância entre
+      o gesto e o efeito é o produto inteiro.</p>
+      <h3>O que NÃO somos</h3>
+      <p>Não somos jukebox, nem rifa, nem plataforma de apostas. O artista tem sempre a
+      palavra final sobre o que toca — e isso é dito em voz alta, não escondido nos termos.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="card">
+    <h3 style="color:var(--coral)">O momento que define tudo</h3>
+    <p style="margin:0">
+      A pessoa fecha o app do banco, olha para o telão e a barra já mexeu. Toda decisão de
+      marca — o contraste no escuro, os números tabulares que não pulam, o cronômetro grande —
+      existe para proteger esses três segundos.
+    </p>
+  </div>
+
+  <div class="foot">Essência</div><div class="num">02</div>
+</section>
+
+<!-- 3 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Arquétipos</h2>
+  <h1 style="font-size:26pt">Mago, com um pé<br>na farra.</h1>
+
+  <div class="arq" style="margin-top:6mm">
+    <div class="sel" style="background:var(--coral);color:var(--noite)">1º</div>
+    <div>
+      <h3>O Mago — primário</h3>
+      <p>Transforma o intangível em acontecimento. Um Pix de cinco reais vira som saindo da
+      caixa em dois minutos. O Mago não explica o truque, ele entrega o efeito: por isso a
+      interface esconde toda a complexidade (rodadas, apuração, webhook) e mostra só a barra
+      subindo.</p>
+      <p class="dim" style="font-size:9.5pt"><strong>Na prática:</strong> confirmação imediata,
+      zero cadastro, nada de jargão técnico na tela da plateia.</p>
+    </div>
+  </div>
+
+  <div class="arq">
+    <div class="sel" style="background:var(--vinho);color:var(--luz)">2º</div>
+    <div>
+      <h3>O Bobo da Corte — secundário</h3>
+      <p>O calor do bar, a provocação leve, o prazer de furar a fila na cara de todo mundo.
+      É ele que autoriza uma dedicatória de 140 caracteres e um botão que diz "Fure a fila"
+      em vez de "Solicitar prioridade".</p>
+      <p class="dim" style="font-size:9.5pt"><strong>Na prática:</strong> estados vazios com
+      graça, copy curta e falada, nenhuma solenidade.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3>A tensão que mantém o equilíbrio</h3>
+  <p>O Mago sozinho vira místico e frio. O Bobo sozinho vira app de festa sem credibilidade —
+  e estamos movendo dinheiro. A régua: <strong>encantar na plateia, ser exato no
+  dinheiro.</strong> Tudo que envolve valor, fila e apuração fala com clareza de recibo.</p>
+
+  <div class="do-dont">
+    <div class="do">
+      <h3>Somos</h3>
+      <p>Imediatos, generosos, com senso de ocasião. Quem faz a noite render.</p>
+    </div>
+    <div class="dont">
+      <h3>Nunca somos</h3>
+      <p>Corporativos (Governante), ingênuos (Inocente) ou ansiosos por escassez artificial
+      — nada de "últimas vagas" ou contagem falsa.</p>
+    </div>
+  </div>
+
+  <div class="foot">Arquétipos</div><div class="num">03</div>
+</section>
+
+<!-- 4 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Voz</h2>
+  <h1 style="font-size:26pt">Fala de quem está<br>no balcão, não no SAC.</h1>
+
+  <p>Português brasileiro falado, frases curtas, verbo na frente. Segunda pessoa direta.
+  O ambiente é barulhento e a tela é pequena: cada palavra precisa se pagar.</p>
+
+  <div class="do-dont">
+    <div class="do">
+      <h3>Escreva assim</h3>
+      <p class="quote">"A próxima música é por sua conta."</p>
+      <p class="quote">"Fure a fila."</p>
+      <p class="quote">"Cole no app do seu banco."</p>
+      <p class="quote">"Seu voto já está no placar."</p>
+      <p class="quote">"A fila está vazia. Seja a primeira pessoa a furar."</p>
+    </div>
+    <div class="dont">
+      <h3>Não escreva assim</h3>
+      <p class="quote">"Participe da votação musical interativa."</p>
+      <p class="quote">"Solicitar prioridade na fila de execução."</p>
+      <p class="quote">"Efetue o pagamento via PIX."</p>
+      <p class="quote">"Sua solicitação foi processada com sucesso."</p>
+      <p class="quote">"Nenhum item encontrado."</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3>Três regras que resolvem a maioria dos casos</h3>
+  <p><strong>1. Diga o efeito, não a mecânica.</strong> "Seu voto entra no placar assim que o
+  Pix for confirmado" — e não "aguardando callback do provedor".</p>
+  <p><strong>2. Dinheiro se fala com exatidão.</strong> Valor sempre visível antes do toque,
+  em reais, sem eufemismo. "Pagar R$ 5,00 com Pix" — nunca "contribuir".</p>
+  <p><strong>3. Erro é conversa, não código.</strong> "Código do show não encontrado." O que
+  falhou e o que fazer, na mesma frase. Nada de número de erro para a plateia.</p>
+
+  <div class="card" style="margin-top:auto">
+    <h3 style="color:var(--coral);margin-bottom:2mm">Uma frase que carrega a marca inteira</h3>
+    <p style="margin:0;font-size:12pt">
+      "O artista tem a palavra final sobre tocar. Pedido recusado é estornado."
+    </p>
+    <small style="margin-top:2mm">Honesta, curta, protege as duas pontas. É o tom.</small>
+  </div>
+
+  <div class="foot">Voz</div><div class="num">04</div>
+</section>
+
+<!-- 5 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Logo</h2>
+  <h1 style="font-size:26pt">Três barras subindo.</h1>
+
+  <p>O símbolo é o placar do show em miniatura — as barras de votação crescendo. Lê como
+  equalizador num contexto musical e como gráfico num contexto de votação, que é exatamente
+  a dupla natureza do produto. Sem rosto, sem microfone, sem nota musical: nada que dispute
+  atenção a 16&nbsp;px.</p>
+
+  <div class="grid2" style="margin-top:4mm">
+    <div class="card" style="text-align:center;padding:8mm">
+      <svg viewBox="0 0 64 64" width="120" height="120">
+        <rect width="64" height="64" rx="14" fill="#180C0F" stroke="#3C2A2F"/>
+        <g fill="#F34835">
+          <rect x="12" y="38" width="9" height="16" rx="4.5"/>
+          <rect x="27.5" y="26" width="9" height="28" rx="4.5"/>
+          <rect x="43" y="14" width="9" height="40" rx="4.5"/>
+        </g>
+      </svg>
+      <small style="margin-top:4mm">Símbolo · app, favicon, avatar</small>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;justify-content:center;padding:8mm">
+      <svg viewBox="0 0 260 44" width="100%">
+        <g fill="#F34835">
+          <rect x="0" y="26" width="8" height="14" rx="4"/>
+          <rect x="13.5" y="15" width="8" height="25" rx="4"/>
+          <rect x="27" y="4" width="8" height="36" rx="4"/>
+        </g>
+        <text x="52" y="33" font-family="Archivo, DejaVu Sans, sans-serif"
+              font-size="30" font-weight="800" letter-spacing="-1" fill="#F7F4F3">Vote Play</text>
+      </svg>
+      <small style="margin-top:6mm">Assinatura horizontal · cabeçalho, material impresso</small>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="grid2">
+    <div>
+      <h3>Área de proteção</h3>
+      <p>Margem livre em todos os lados igual à <strong>largura de uma barra</strong>. Nada
+      entra nesse espaço — nem texto, nem borda, nem outra marca.</p>
+      <h3>Tamanho mínimo</h3>
+      <p>Símbolo: <strong>16&nbsp;px</strong> em tela, <strong>8&nbsp;mm</strong> impresso.<br>
+      Assinatura: <strong>96&nbsp;px</strong> em tela, <strong>25&nbsp;mm</strong> impresso.</p>
+    </div>
+    <div>
+      <h3>Versões</h3>
+      <p>Colorida sobre fundo escuro é a principal. Monocromática clara para foto e fundo
+      cheio; monocromática escura para papel branco e fax do mundo real.</p>
+      <h3>Arquivos</h3>
+      <p><code>brand/logo/</code> — símbolo, símbolo sem fundo, assinatura e as duas
+      monocromáticas, todos em SVG.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+  <h3>O que nunca fazer</h3>
+  <p class="dim" style="font-size:9.5pt">
+    Não incline nem gire. Não troque a cor das barras por outra da paleta. Não altere a
+    proporção entre as alturas — a progressão é o significado. Não adicione sombra, contorno
+    ou brilho. Não coloque o símbolo colorido sobre fundo claro sem o quadrado escuro.
+    Não escreva "VotePlay" junto nem "vote play" em caixa baixa.
+  </p>
+
+  <div class="foot">Logo</div><div class="num">05</div>
+</section>
+
+<!-- 6 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Cores</h2>
+  <h1 style="font-size:26pt">Escuro por obrigação,<br>coral por escolha.</h1>
+
+  <p>Show é ambiente escuro. Um app claro cega quem está na plateia e denuncia quem está no
+  celular. O escuro aqui não é estilo — é condição de uso. O coral existe para uma coisa só:
+  dizer onde tocar e o que está ganhando.</p>
+
+  <div class="grid3" style="margin-top:5mm">
+    <div class="swatch"><div class="chip" style="background:#F34835"></div>
+      <div class="meta"><div class="nome">Coral</div><div class="hex">#F34835 · hsl(6 89% 58%)</div>
+      <div class="papel">Ação e destaque. Um por tela: o botão que importa, a música na frente.</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#622837"></div>
+      <div class="meta"><div class="nome">Vinho</div><div class="hex">#622837 · hsl(344 42% 27%)</div>
+      <div class="papel">Cor de origem da marca. Vira luz de palco no topo das telas.</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#180C0F"></div>
+      <div class="meta"><div class="nome">Noite</div><div class="hex">#180C0F · hsl(344 32% 7%)</div>
+      <div class="papel">Fundo. Não é preto puro: tem o vinho por dentro.</div></div></div>
+  </div>
+
+  <div class="grid3" style="margin-top:4mm">
+    <div class="swatch"><div class="chip" style="background:#231519;height:18mm"></div>
+      <div class="meta"><div class="nome">Palco</div><div class="hex">#231519</div>
+      <div class="papel">Superfície de card.</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#F7F4F3;height:18mm"></div>
+      <div class="meta"><div class="nome">Luz</div><div class="hex">#F7F4F3</div>
+      <div class="papel">Texto principal.</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#B6ABA5;height:18mm"></div>
+      <div class="meta"><div class="nome">Névoa</div><div class="hex">#B6ABA5</div>
+      <div class="papel">Texto secundário.</div></div></div>
+  </div>
+
+  <div class="grid3" style="margin-top:4mm">
+    <div class="swatch"><div class="chip" style="background:#2BAB6F;height:18mm"></div>
+      <div class="meta"><div class="nome">Confirmado</div><div class="hex">#2BAB6F</div>
+      <div class="papel">Pagamento aprovado, pedido aceito.</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#E15B5D;height:18mm"></div>
+      <div class="meta"><div class="nome">Alerta</div><div class="hex">#E15B5D</div>
+      <div class="papel">Erro e recusa.</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#3C2A2F;height:18mm"></div>
+      <div class="meta"><div class="nome">Contorno</div><div class="hex">#3C2A2F</div>
+      <div class="papel">Bordas e divisores.</div></div></div>
+  </div>
+
+  <div class="rule"></div>
+  <p style="font-size:9.5pt" class="dim">
+    <strong>Proporção de uso:</strong> cerca de 80% noite e palco, 15% luz e névoa, 5% coral.
+    Coral que aparece muito deixa de significar "aqui".
+  </p>
+
+  <div class="foot">Cores</div><div class="num">06</div>
+</section>
+
+<!-- 7 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Acessibilidade</h2>
+  <h1 style="font-size:26pt">Medido, não estimado.</h1>
+
+  <p>Toda combinação da interface foi calculada pela fórmula de contraste da WCAG. Duas
+  reprovaram na primeira medição e foram corrigidas — a tabela abaixo é o estado final.</p>
+
+  <table style="margin-top:4mm">
+    <tr><th>Combinação</th><th style="width:22mm">Razão</th><th style="width:26mm">WCAG AA</th></tr>
+    <tr><td>Texto principal sobre fundo</td><td class="tab">17.47</td><td class="ok">passa</td></tr>
+    <tr><td>Texto secundário sobre fundo</td><td class="tab">8.52</td><td class="ok">passa</td></tr>
+    <tr><td>Texto secundário sobre card</td><td class="tab">7.85</td><td class="ok">passa</td></tr>
+    <tr><td>Sucesso sobre fundo</td><td class="tab">6.52</td><td class="ok">passa</td></tr>
+    <tr><td>Erro sobre fundo</td><td class="tab">5.33</td><td class="ok">passa</td></tr>
+    <tr><td>Cronômetro / destaque sobre fundo</td><td class="tab">5.27</td><td class="ok">passa</td></tr>
+    <tr><td>Rótulo do botão primário</td><td class="tab">5.27</td><td class="ok">passa</td></tr>
+    <tr><td>Destaque sobre card</td><td class="tab">4.85</td><td class="ok">passa</td></tr>
+  </table>
+
+  <div class="rule"></div>
+
+  <h3>As duas correções, e por que importam</h3>
+  <p><strong>Rótulo do botão primário.</strong> Branco sobre o coral dava apenas
+  <span class="tab">3.31</span> — reprovado para texto normal. Escurecer o coral resolveria,
+  mas apagaria a cor que identifica a marca. A saída foi inverter: <strong>rótulo escuro sobre
+  o coral original</strong>, que dá <span class="tab">5.27</span> e mantém a vibração. O botão
+  "Pagar com Pix" é o momento mais importante do app — não podia ser o menos legível.</p>
+
+  <p><strong>Texto de erro.</strong> O vermelho a 48% de luminosidade dava
+  <span class="tab">3.61</span> sobre o fundo escuro. Clareado para 62%, chega a
+  <span class="tab">5.33</span>.</p>
+
+  <div class="card">
+    <h3 style="margin-bottom:2mm">A regra que nasceu daí</h3>
+    <p style="margin:0">Cor viva de fundo pede <strong>rótulo escuro</strong>, nunca branco.
+    Vale para coral e alerta, e vale para qualquer cor nova que entre na paleta.</p>
+  </div>
+
+  <small style="margin-top:4mm">Calculado com a fórmula de luminância relativa da WCAG 2.1.
+  O script está em <code>brand/colors.py</code> — rode de novo a cada mudança de paleta.</small>
+
+  <div class="foot">Acessibilidade</div><div class="num">07</div>
+</section>
+
+<!-- 8 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Tipografia</h2>
+  <h1 style="font-size:23pt;margin-bottom:4mm">Uma família só,<br>por orçamento de bytes.</h1>
+
+  <p style="margin-bottom:3mm">A plateia carrega o app no wi-fi de um bar, e cada fonte
+  baixada disputa espaço com a primeira pintura da tela. Por isso: <strong>uma variável para
+  display</strong>, e a pilha do sistema para o resto — que custa zero.</p>
+
+  <div class="grid2" style="margin-top:4mm">
+    <div class="card">
+      <h3>Display — Archivo Variable</h3>
+      <p style="font-size:9.5pt;margin-bottom:2mm">Títulos, cronômetro e telão. Grotesca de
+      origem em sinalização: aguenta corpo grande sem afrouxar e se lê de longe — o caso do
+      telão. Pesos 600–800, subconjunto latino.</p>
+      <small>≈ 30 kB woff2, um arquivo para todos os pesos.</small>
+    </div>
+    <div class="card">
+      <h3>Interface — pilha do sistema</h3>
+      <p style="font-size:9.5pt;margin-bottom:2mm">Corpo, rótulos, listas. Usa a fonte nativa
+      de cada aparelho: familiar, otimizada para telas pequenas e já instalada.</p>
+      <pre>system-ui, -apple-system,
+"Segoe UI", Roboto, sans-serif</pre>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3>Escala</h3>
+  <div class="scale-row"><span class="lbl">Telão · placar</span>
+    <span style="font-family:var(--display);font-size:30pt;font-weight:800;letter-spacing:-.03em">04:57</span></div>
+  <div class="scale-row"><span class="lbl">Cronômetro · celular</span>
+    <span style="font-family:var(--display);font-size:22pt;font-weight:800">04:57</span></div>
+  <div class="scale-row"><span class="lbl">Título de tela</span>
+    <span style="font-size:15pt;font-weight:700">Fure a fila</span></div>
+  <div class="scale-row"><span class="lbl">Título de item</span>
+    <span style="font-size:11pt;font-weight:700">Bohemian Rhapsody</span></div>
+  <div class="scale-row"><span class="lbl">Corpo</span>
+    <span style="font-size:10pt">Peça qualquer música por R$ 30,00.</span></div>
+  <div class="scale-row"><span class="lbl">Apoio</span>
+    <span style="font-size:8.5pt;color:var(--nevoa)">O voto entra no placar assim que o Pix for confirmado.</span></div>
+  <div class="scale-row"><span class="lbl">Código do show</span>
+    <span style="font-family:var(--mono);font-size:14pt;letter-spacing:.28em">TESTE1</span></div>
+
+  <div class="card" style="margin-top:5mm;padding:5mm">
+    <h3 style="color:var(--coral);margin-bottom:2mm">Regra inegociável: números tabulares</h3>
+    <p style="margin:0">Cronômetro, pontos e percentuais usam
+    <code>font-variant-numeric: tabular-nums</code>. Sem isso os dígitos têm larguras
+    diferentes e o cronômetro treme a cada segundo — num elemento que a plateia encara por
+    cinco minutos.</p>
+  </div>
+
+  <small style="margin-top:3mm">Este PDF foi composto com fonte substituta; o specimen mostra
+  a escala e o uso, não o desenho final da Archivo.</small>
+
+  <div class="foot">Tipografia</div><div class="num">08</div>
+</section>
+
+<!-- 9 ------------------------------------------------------------------ -->
+<section class="page">
+  <h2>Aplicações</h2>
+  <h1 style="font-size:26pt">Três telas, três distâncias.</h1>
+
+  <div class="grid3" style="margin-top:5mm">
+    <div class="card">
+      <h3>Celular · 40 cm</h3>
+      <p style="font-size:9.5pt">Uma ação por tela. Alvos de toque de 48 px. O valor sempre
+      visível antes do toque. Polegar alcança tudo na metade de baixo.</p>
+    </div>
+    <div class="card">
+      <h3>Telão · 10 m</h3>
+      <p style="font-size:9.5pt">QR gigante à esquerda, placar à direita. Nada clicável.
+      Percentual em vez de pontos — de longe, proporção lê melhor que número absoluto.</p>
+    </div>
+    <div class="card">
+      <h3>Mesa · papel</h3>
+      <p style="font-size:9.5pt">Única peça em fundo branco, por economia de tinta e leitura
+      sob luz fraca. QR, código em caixa alta espaçada e a frase da marca.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3>O código do show</h3>
+  <p>Seis caracteres, alfabeto Crockford base32 — <strong>sem I, L, O e U</strong>. Elimina a
+  confusão entre I/1 e O/0 quando alguém digita no escuro, e evita palavras acidentais.
+  Sempre em caixa alta, monoespaçado, com espaçamento entre letras generoso.</p>
+  <p class="tab" style="font-size:16pt;letter-spacing:.3em;color:var(--coral);margin-top:3mm">TESTE1</p>
+
+  <div class="rule"></div>
+
+  <h3>Movimento</h3>
+  <p>As barras do placar crescem em <code>400ms cubic-bezier</code> — rápido o bastante para
+  parecer resposta ao gesto, lento o bastante para o olho acompanhar de onde saiu.
+  Nada pisca. Nada pula. A única urgência permitida é o último minuto do cronômetro,
+  que muda para coral. <code>prefers-reduced-motion</code> desliga tudo.</p>
+
+  <div class="foot">Aplicações</div><div class="num">09</div>
+</section>
+
+<!-- 10 ----------------------------------------------------------------- -->
+<section class="page">
+  <h2>Tokens</h2>
+  <h1 style="font-size:26pt">A marca, em código.</h1>
+
+  <p>Este guia não é um PDF que envelhece sozinho: os valores abaixo são os mesmos que rodam
+  em produção, em <code>src/index.css</code>. Mudou aqui, muda lá — e vice-versa.</p>
+
+  <pre style="margin-top:4mm">:root {
+  /* superfícies */
+  --background:      hsl(344 32% 7%);    /* noite    #180C0F */
+  --card:            hsl(344 26% 11%);   /* palco    #231519 */
+  --muted:           hsl(344 16% 18%);   /* bastidor #35272A */
+  --border:          hsl(344 18% 20%);   /* contorno #3C2A2F */
+
+  /* texto */
+  --foreground:      hsl(20 20% 96%);    /* luz      #F7F4F3 */
+  --muted-foreground:hsl(20 10% 68%);    /* névoa    #B6ABA5 */
+
+  /* marca */
+  --primary:         hsl(6 89% 58%);     /* coral    #F34835 */
+  --primary-foreground: hsl(344 32% 7%); /* rótulo escuro: 5.27:1 */
+  --accent:          hsl(344 42% 27%);   /* vinho    #622837 */
+
+  /* semânticas */
+  --success:         hsl(152 60% 42%);   /* #2BAB6F */
+  --destructive:     hsl(359 69% 62%);   /* #E15B5D */
+  --destructive-foreground: hsl(344 32% 7%);
+
+  --radius: 0.875rem;
+}</pre>
+
+  <div class="rule"></div>
+
+  <div class="grid2">
+    <div>
+      <h3>Arquivos da marca</h3>
+      <p style="font-size:9.5pt">
+        <code>brand/logo/</code> — SVGs<br>
+        <code>brand/colors.py</code> — conversão e contraste<br>
+        <code>brand/brandkit.html</code> — fonte deste PDF<br>
+        <code>public/</code> — favicon, ícones, og
+      </p>
+    </div>
+    <div>
+      <h3>Como revisar</h3>
+      <p style="font-size:9.5pt">Mudou cor? Rode <code>python3 brand/colors.py</code> e
+      confira se algum par caiu abaixo de 4.5. Depois regenere este PDF a partir do HTML.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:auto">
+    <p style="margin:0;font-size:11pt">
+      <strong>Regra final.</strong> Na dúvida entre bonito e legível no escuro, a 40 cm,
+      com uma cerveja na outra mão — escolha legível.
+    </p>
+  </div>
+
+  <div class="foot">Tokens</div><div class="num">10</div>
+</section>
+
+</body>
+</html>

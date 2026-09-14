@@ -3,6 +3,12 @@
 -- As colunas de auth.users espelham as do projeto hospedado nos pontos que o
 -- seed toca, para o teste local não ser mais permissivo que a realidade.
 
+-- O Supabase instala extensões num schema `extensions`, NÃO no `public`.
+-- Reproduzir isso aqui é o que faz o teste pegar funções que dependem de
+-- pgcrypto sem qualificar o schema — bug que já escapou uma vez para produção.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+
 create schema if not exists auth;
 
 create table if not exists auth.users (

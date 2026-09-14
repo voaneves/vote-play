@@ -24,14 +24,19 @@
   --ring: hsl(6 89% 58%);
 
   /* marca */
-  --primary: hsl(6 89% 58%); /* #F24333 — ação */
-  --primary-foreground: hsl(0 0% 100%);
+  /* Coral da marca. O rótulo sobre ele é ESCURO, não branco: branco sobre este
+     coral dá 3.31:1 e reprova no AA para texto normal; o escuro dá 5.27:1 e
+     ainda preserva a vibração da cor, que é o que identifica a marca. */
+  --primary: hsl(6 89% 58%);
+  --primary-foreground: hsl(344 32% 7%);
   --secondary: hsl(344 22% 16%);
   --secondary-foreground: hsl(20 20% 96%);
   --accent: hsl(344 42% 27%); /* #5B2333 — vinho da marca */
   --accent-foreground: hsl(20 20% 96%);
-  --destructive: hsl(359 69% 48%);
-  --destructive-foreground: hsl(0 0% 100%);
+  /* Clareado de 48% para 62%: a 48% o texto de erro dava 3.61:1 sobre o fundo
+     escuro e reprovava. Segue a mesma regra do coral — cor viva, rótulo escuro. */
+  --destructive: hsl(359 69% 62%);
+  --destructive-foreground: hsl(344 32% 7%);
   --success: hsl(152 60% 42%);
   --success-foreground: hsl(0 0% 100%);
 
