@@ -45,10 +45,19 @@ export interface RoundRow {
 const SHOW_COLUMNS =
   'id,title,venue,city,status,join_code,vote_mode,round_duration_seconds,direct_request_price_cents,scheduled_for,created_at';
 
-function unwrap<T>(res: { data: T | null; error: { message: string } | null }): T {
+/**
+ * Desembrulha a resposta do supabase-js.
+ *
+ * O retorno é `NonNullable<T>` de propósito: sem isso a inferência aceita
+ * `T = X | null` e o null vaza para quem chama, que passa a precisar de
+ * checagem redundante — ou, pior, esquece dela.
+ */
+function unwrap<T>(res: { data: T | null; error: { message: string } | null }): NonNullable<T> {
   if (res.error) throw new Error(res.error.message);
-  if (res.data === null) throw new Error('resposta vazia do servidor');
-  return res.data;
+  if (res.data === null || res.data === undefined) {
+    throw new Error('resposta vazia do servidor');
+  }
+  return res.data as NonNullable<T>;
 }
 
 // --------------------------------------------------------------- repertório
@@ -89,11 +98,15 @@ export async function getShow(id: string): Promise<ShowRow> {
   return unwrap(await getSupabase().from('shows').select(SHOW_COLUMNS).eq('id', id).single());
 }
 
-/** O join_code é gerado por trigger no banco — não mandamos nada daqui. */
+/**
+ * O join_code é gerado por trigger no banco — não mandamos nada daqui.
+ * O tipo de retorno é explícito porque o cliente não carrega o schema tipado:
+ * sem isso a inferência colapsa para `never` e o erro só aparece no consumo.
+ */
 export async function createShow(
   ownerId: string,
   input: { title: string; venue?: string; city?: string },
-) {
+): Promise<{ id: string; join_code: string }> {
   return unwrap(
     await getSupabase()
       .from('shows')
@@ -105,7 +118,7 @@ export async function createShow(
         status: 'draft',
       })
       .select('id,join_code')
-      .single(),
+      .single<{ id: string; join_code: string }>(),
   );
 }
 

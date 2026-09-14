@@ -48,5 +48,6 @@ export const api: VotePlayApi = {
 
 export * from './types';
 
-/** Código do show de demonstração, só existe no provider mock. */
+/** Códigos dos shows de demonstração — existem só no provider mock. */
 export const MOCK_DEMO_CODE = 'TESTE1';
+export const MOCK_FREE_CODE = 'FREE01';

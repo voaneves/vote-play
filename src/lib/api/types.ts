@@ -16,6 +16,7 @@ export class ApiError extends Error {
       | 'round_closed'
       | 'invalid_amount'
       | 'free_votes_exhausted'
+      | 'already_voted'
       | 'rate_limited'
       | 'unknown',
   ) {
@@ -57,7 +58,10 @@ export interface VotePlayApi {
 
   /** Cria voto pendente + cobrança Pix. O peso é decidido no servidor. */
   createVoteIntent(input: VoteIntentInput): Promise<{ payment: Payment; voteId: string }>;
-  /** Voto sem pagamento (modos free_*). */
+  /**
+   * Voto sem pagamento (modos free_*). O limite por rodada é decidido no banco,
+   * não aqui — o cliente só reflete o que o snapshot disser.
+   */
   castFreeVote(
     input: Omit<VoteIntentInput, 'amountCents'>,
   ): Promise<{ voteId: string }>;

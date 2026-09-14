@@ -160,9 +160,15 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
     );
   }
 
+  // No modo pago o voto sempre passa pelo Pix. Nos modos gratuitos o toque já
+  // registra o voto — abrir um seletor de valor ali seria pedir dinheiro por
+  // algo que é de graça.
+  const isPaid = show.voteMode === 'paid_weighted';
+  const alreadyVoted = round.myVoteCandidateId !== null;
+  const canVoteFree = !isPaid && round.freeVotesLeft > 0 && !alreadyVoted;
   const ranked = [...round.candidates].sort((a, b) => b.weight - a.weight);
 
-  const handleConfirm = async (amountCents: number) => {
+  const handlePaidConfirm = async (amountCents: number) => {
     if (!picking) return;
     setSubmitting(true);
     try {
@@ -176,17 +182,40 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
       setPicking(null);
       navigate(`/s/${show.joinCode}/pix/${payment.id}`);
     } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : 'Não foi possível gerar o Pix.',
-      );
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível gerar o Pix.');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleFreeVote = async (candidate: RoundCandidate) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await api.castFreeVote({
+        showId: show.id,
+        roundId: round.id,
+        candidateId: candidate.id,
+        sessionId: session.id,
+      });
+      navigator.vibrate?.(12);
+      toast.success(`Voto em "${candidate.title}" registrado.`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível votar.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTap = (candidate: RoundCandidate) => {
+    if (isPaid) return setPicking(candidate);
+    if (alreadyVoted) return toast.info('Você já votou nesta rodada.');
+    void handleFreeVote(candidate);
+  };
+
   return (
     <>
-      <section className="vp-surface mb-5 mt-2 p-6">
+      <section className="vp-surface mb-4 mt-2 p-6">
         <RoundTimer
           secondsLeft={secondsLeft}
           isRunningOut={isRunningOut}
@@ -194,6 +223,14 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
           roundSeq={round.seq}
         />
       </section>
+
+      <p className="mb-4 text-center text-sm text-muted-foreground" aria-live="polite">
+        {isPaid
+          ? 'Escolha a música e quanto vale o seu voto.'
+          : alreadyVoted
+            ? 'Seu voto está computado. Aguarde a próxima rodada para votar de novo.'
+            : 'Toque na música que você quer ouvir. Um voto por rodada.'}
+      </p>
 
       <ul className="space-y-3">
         {ranked.map((candidate, index) => (
@@ -203,20 +240,24 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
               rank={index + 1}
               totalWeight={round.totalWeight}
               leading={index === 0}
-              disabled={hasEnded}
-              onVote={setPicking}
+              disabled={hasEnded || (!isPaid && !canVoteFree && !alreadyVoted)}
+              chosen={round.myVoteCandidateId === candidate.id}
+              actionLabel={isPaid ? 'Votar' : 'Escolher'}
+              onVote={handleTap}
             />
           </li>
         ))}
       </ul>
 
-      <AmountPicker
-        show={show}
-        candidate={picking}
-        submitting={submitting}
-        onClose={() => setPicking(null)}
-        onConfirm={handleConfirm}
-      />
+      {isPaid && (
+        <AmountPicker
+          show={show}
+          candidate={picking}
+          submitting={submitting}
+          onClose={() => setPicking(null)}
+          onConfirm={handlePaidConfirm}
+        />
+      )}
     </>
   );
 }

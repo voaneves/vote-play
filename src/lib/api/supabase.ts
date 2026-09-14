@@ -27,6 +27,9 @@ function translate(error: { message: string; code?: string } | null, fallback: s
   if (/não está no ar|indisponível/i.test(message)) {
     throw new ApiError('Este show não está no ar.', 'show_not_live');
   }
+  if (/já votou/i.test(message)) {
+    throw new ApiError('Você já votou nesta rodada.', 'already_voted');
+  }
   if (/encerrada|closing|settled/i.test(message)) {
     throw new ApiError('Esta rodada já foi encerrada.', 'round_closed');
   }
@@ -64,8 +67,22 @@ export const supabaseApi: VotePlayApi = {
     );
   },
 
-  async castFreeVote() {
-    throw new ApiError('Voto sem pagamento entra na Fase 3.', 'unknown');
+  async castFreeVote(input) {
+    const { data, error } = await getSupabase().rpc('cast_free_vote', {
+      p_round_id: input.roundId,
+      p_candidate_id: input.candidateId,
+      p_session_id: input.sessionId,
+    });
+    if (error) {
+      if (/já votou/i.test(error.message)) {
+        throw new ApiError('Você já votou nesta rodada.', 'already_voted');
+      }
+      if (/passa pelo Pix|desligado/i.test(error.message)) {
+        throw new ApiError(error.message, 'free_votes_exhausted');
+      }
+      translate(error, 'Não foi possível registrar seu voto.');
+    }
+    return data as { voteId: string };
   },
 
   async createRequestIntent(_input: RequestIntentInput) {

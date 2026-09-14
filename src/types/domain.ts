@@ -38,7 +38,7 @@ export interface ShowPublic {
   voteMaxCents: number;
   voteSuggestedCents: number[];
   centsPerPoint: number;
-  freeVotesPerSession: number;
+  freeVotesPerRound: number;
   roundDurationSeconds: number;
 
   directRequestEnabled: boolean;
@@ -62,6 +62,10 @@ export interface Round {
   seq: number;
   label: string | null;
   status: RoundStatus;
+  /** Em quem ESTA sessão votou nesta rodada, se votou. */
+  myVoteCandidateId: string | null;
+  /** Votos sem pagamento que ainda restam a esta sessão nesta rodada. */
+  freeVotesLeft: number;
   opensAt: string | null;
   /** Fonte da verdade do cronômetro. O cliente calcula closesAt - serverTime. */
   closesAt: string | null;

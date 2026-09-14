@@ -33,6 +33,12 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Typecheck
+        # `tsc --noEmit` na raiz NÃO checa nada: o tsconfig da raiz é de solução
+        # (files: [] + references), então ele não abre arquivo algum. O script
+        # aponta para os projetos de verdade. Isso já escondeu erro de tipo aqui.
+        run: npm run typecheck
+
       - name: Lint
         run: npm run lint
 

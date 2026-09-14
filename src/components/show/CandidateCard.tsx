@@ -8,6 +8,10 @@ interface Props {
   totalWeight: number;
   leading: boolean;
   disabled?: boolean;
+  /** true quando foi nesta candidata que a pessoa votou */
+  chosen?: boolean;
+  /** rótulo da ação, que muda entre voto grátis e voto pago */
+  actionLabel?: string;
   onVote: (candidate: RoundCandidate) => void;
 }
 
@@ -17,6 +21,8 @@ export function CandidateCard({
   totalWeight,
   leading,
   disabled,
+  chosen = false,
+  actionLabel = 'Votar',
   onVote,
 }: Props) {
   const share = percent(candidate.weight, totalWeight);
@@ -26,11 +32,16 @@ export function CandidateCard({
       type="button"
       disabled={disabled}
       onClick={() => onVote(candidate)}
-      aria-label={`Votar em ${candidate.title}, de ${candidate.artistName}. ${share}% dos pontos.`}
+      aria-label={
+        chosen
+          ? `${candidate.title}, de ${candidate.artistName}. Seu voto. ${share}% dos pontos.`
+          : `${actionLabel} em ${candidate.title}, de ${candidate.artistName}. ${share}% dos pontos.`
+      }
       className={cn(
         'vp-surface vp-focus group relative w-full overflow-hidden p-4 text-left transition',
         'active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50',
-        leading && 'border-primary/60 shadow-[0_0_0_1px_hsl(var(--primary)/0.35)]',
+        leading && 'border-primary/60',
+        chosen && 'border-primary ring-1 ring-primary/50',
       )}
     >
       {/* barra de participação — preenchimento do próprio card, não um elemento separado */}
@@ -79,9 +90,13 @@ export function CandidateCard({
           {candidate.votesCount} {candidate.votesCount === 1 ? 'voto' : 'votos'}
           {candidate.amountCents > 0 && ` · ${formatCents(candidate.amountCents)}`}
         </span>
-        <span className="font-semibold text-primary opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-          Votar →
-        </span>
+        {chosen ? (
+          <span className="font-semibold text-primary">✓ Seu voto</span>
+        ) : (
+          <span className="font-semibold text-primary opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+            {actionLabel} →
+          </span>
+        )}
       </div>
     </button>
   );

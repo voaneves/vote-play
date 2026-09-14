@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { env } from '@/config/env';
-import { MOCK_DEMO_CODE } from '@/lib/api';
+import { MOCK_DEMO_CODE, MOCK_FREE_CODE } from '@/lib/api';
 import { isValidJoinCode, normalizeJoinCode, JOIN_CODE_LENGTH } from '@/lib/joinCode';
 import { Ticket } from 'lucide-react';
 
@@ -69,13 +69,21 @@ export default function Landing() {
         </p>
 
         {env.apiProvider === 'mock' && (
-          <button
-            type="button"
-            onClick={() => setCode(MOCK_DEMO_CODE)}
-            className="vp-focus mx-auto mt-6 block rounded-full border border-dashed border-border px-4 py-2 text-xs text-muted-foreground"
-          >
-            Demonstração: usar o código {MOCK_DEMO_CODE}
-          </button>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            {[
+              { code: MOCK_DEMO_CODE, label: 'voto por Pix' },
+              { code: MOCK_FREE_CODE, label: 'voto grátis' },
+            ].map(({ code: demo, label }) => (
+              <button
+                key={demo}
+                type="button"
+                onClick={() => setCode(demo)}
+                className="vp-focus rounded-full border border-dashed border-border px-4 py-2 text-xs text-muted-foreground"
+              >
+                {demo} · {label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </main>
