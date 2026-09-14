@@ -107,9 +107,14 @@ export interface AudienceSession {
   freeVotesUsed: number;
 }
 
-/** Snapshot completo que a tela do show consome. */
+/**
+ * O que muda enquanto o show acontece.
+ *
+ * Não inclui o `ShowPublic`: ele chega no `join`, é estável durante o show e já
+ * fica no contexto. Repetir a configuração inteira a cada atualização de placar
+ * seria desperdício no wi-fi da plateia.
+ */
 export interface ShowState {
-  show: ShowPublic;
   round: Round | null;
   queue: DirectRequest[];
   /** ISO do relógio do servidor, usado para corrigir drift do cronômetro. */

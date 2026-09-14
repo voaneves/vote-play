@@ -1,0 +1,84 @@
+import { useState, type FormEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { env } from '@/config/env';
+
+export default function SignIn() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+
+  if (!isSupabaseConfigured()) {
+    return (
+      <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-6 text-center">
+        <h1 className="text-2xl font-bold">Painel indisponível</h1>
+        <p className="mt-3 text-muted-foreground">
+          O painel do artista precisa do Supabase configurado. Preencha
+          <code className="mx-1 rounded bg-muted px-1.5 py-0.5 text-sm">VITE_SUPABASE_URL</code>
+          e
+          <code className="mx-1 rounded bg-muted px-1.5 py-0.5 text-sm">VITE_SUPABASE_ANON_KEY</code>
+          no <code className="rounded bg-muted px-1.5 py-0.5 text-sm">.env</code>.
+        </p>
+      </main>
+    );
+  }
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSending(true);
+    setError(null);
+    const { error: err } = await getSupabase().auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}${env.basePath}painel` },
+    });
+    setSending(false);
+    if (err) setError(err.message);
+    else setSent(true);
+  };
+
+  if (sent) {
+    return (
+      <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-6 text-center">
+        <h1 className="text-2xl font-bold">Confira seu e-mail</h1>
+        <p className="mt-3 text-muted-foreground">
+          Mandamos um link de acesso para <strong className="text-foreground">{email}</strong>.
+          Ele abre o painel direto, sem senha.
+        </p>
+        <button
+          type="button"
+          onClick={() => setSent(false)}
+          className="vp-focus mt-8 text-sm text-primary underline underline-offset-4"
+        >
+          Usar outro e-mail
+        </button>
+      </main>
+    );
+  }
+
+  return (
+    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col justify-center px-6">
+      <h1 className="text-2xl font-bold">Painel do artista</h1>
+      <p className="mt-2 text-muted-foreground">
+        Entre com seu e-mail. Enviamos um link de acesso — sem senha para lembrar.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-3">
+        <input
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="voce@exemplo.com"
+          aria-label="E-mail"
+          className="vp-focus w-full rounded-xl border border-border bg-card px-4 py-3.5 placeholder:text-muted-foreground/50"
+        />
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" size="lg" disabled={sending} className="h-14 w-full text-base font-semibold">
+          {sending ? 'Enviando…' : 'Enviar link de acesso'}
+        </Button>
+      </form>
+    </main>
+  );
+}

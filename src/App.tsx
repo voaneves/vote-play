@@ -10,8 +10,15 @@ import ShowPage from '@/pages/ShowPage';
 // Fora do caminho crítico da plateia: só baixa quando alguém realmente abre.
 const PixPage = lazy(() => import('@/pages/PixPage'));
 const TelaoPage = lazy(() => import('@/pages/TelaoPage'));
-const PainelPage = lazy(() => import('@/pages/PainelPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
+
+// O painel inteiro é do artista — a plateia nunca carrega esse código,
+// nem o supabase-js com GoTrue que ele arrasta junto.
+const PainelRoot = lazy(() => import('@/pages/painel/PainelRoot'));
+const Shows = lazy(() => import('@/pages/painel/Shows'));
+const ShowLive = lazy(() => import('@/pages/painel/ShowLive'));
+const ShowQr = lazy(() => import('@/pages/painel/ShowQr'));
+const Repertoire = lazy(() => import('@/pages/painel/Repertoire'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -33,12 +40,19 @@ export default function App() {
         {/* basename vem do Vite: '/vote-play/' no GitHub Pages, '/' em domínio próprio */}
         <BrowserRouter basename={env.basePath}>
           <Suspense fallback={<RouteFallback />}>
-            <Routes>
+              <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/s/:code" element={<ShowPage />} />
               <Route path="/s/:code/pix/:paymentId" element={<PixPage />} />
               <Route path="/telao/:code" element={<TelaoPage />} />
-              <Route path="/painel" element={<PainelPage />} />
+
+              <Route path="/painel" element={<PainelRoot />}>
+                <Route index element={<Shows />} />
+                <Route path="repertorio" element={<Repertoire />} />
+                <Route path="shows/:id" element={<ShowLive />} />
+                <Route path="shows/:id/qr" element={<ShowQr />} />
+              </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

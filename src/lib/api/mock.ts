@@ -158,7 +158,6 @@ function createPayment(purpose: Payment['purpose'], amountCents: number): Paymen
 
 function snapshot(): ShowState {
   return {
-    show,
     round: structuredClone(round),
     queue: structuredClone(queue),
     serverTime: iso(),

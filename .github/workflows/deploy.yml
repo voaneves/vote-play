@@ -39,10 +39,11 @@ jobs:
       - name: Build
         env:
           # Chaves públicas por design — a segurança fica na RLS do Postgres.
-          # A service_role NUNCA entra no bundle.
+          # A chave secreta (sb_secret_…) NUNCA entra aqui: o vite.config aborta
+          # o build se encontrar uma em qualquer variável VITE_*.
           VITE_API_PROVIDER: ${{ vars.VITE_API_PROVIDER || 'mock' }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build
 
       - name: Fallback de SPA para links profundos

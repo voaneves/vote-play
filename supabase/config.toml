@@ -1,0 +1,23 @@
+# Vote Play — configuração local do Supabase CLI.
+# O projeto remoto é criado pelo painel; isto serve para `supabase start` e `db diff`.
+project_id = "vote-play"
+
+[db]
+port = 54322
+major_version = 17
+
+[api]
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+site_url = "http://localhost:8080/vote-play/"
+additional_redirect_urls = ["http://localhost:8080/vote-play/painel"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
