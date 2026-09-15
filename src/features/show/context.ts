@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { ConnectionHealth } from '@/lib/api/types';
 import type { AudienceSession, ShowPublic, ShowState } from '@/types/domain';
 
 export interface ShowContextValue {
@@ -7,6 +8,10 @@ export interface ShowContextValue {
   show: ShowPublic | null;
   session: AudienceSession | null;
   state: ShowState | null;
+  /** Saúde da conexão em tempo real. Ver ConnectionHealth. */
+  health: ConnectionHealth;
+  /** Quando o último snapshot bom chegou (epoch ms), ou null se nenhum chegou. */
+  lastSyncedAt: number | null;
   /** Diferença relógio-do-servidor − relógio-local, em ms. Corrige o cronômetro. */
   clockOffsetMs: number;
   retry: () => void;

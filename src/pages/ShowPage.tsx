@@ -14,6 +14,7 @@ import { RoundTimer } from '@/components/show/RoundTimer';
 import { AmountPicker } from '@/components/show/AmountPicker';
 import { QueueList } from '@/components/show/QueueList';
 import { InstagramGate } from '@/components/show/InstagramGate';
+import { ConnectionBanner } from '@/components/show/ConnectionBanner';
 import { ListMusic, Music4 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { RoundCandidate } from '@/types/domain';
@@ -31,7 +32,8 @@ export default function ShowPage() {
 }
 
 function ShowScreen() {
-  const { status, error, show, session, state, clockOffsetMs, retry } = useShow();
+  const { status, error, show, session, state, health, lastSyncedAt, clockOffsetMs, retry } =
+    useShow();
   const [tab, setTab] = useState<Tab>('voting');
   // o @ declarado nesta visita; o join já traz o de visitas anteriores
   const [handle, setHandle] = useState<string | null>(null);
@@ -63,6 +65,8 @@ function ShowScreen() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col">
+      <ConnectionBanner health={health} lastSyncedAt={lastSyncedAt} />
+
       <header className="px-4 pb-2 pt-6">
         <div className="mx-auto flex max-w-md items-baseline justify-between">
           <div className="min-w-0">
@@ -71,9 +75,16 @@ function ShowScreen() {
               <p className="truncate text-sm text-muted-foreground">{show.venue}</p>
             )}
           </div>
-          <span className="tabular ml-3 shrink-0 rounded-full border border-border px-2.5 py-1 font-mono text-xs tracking-widest text-muted-foreground">
-            {show.joinCode}
-          </span>
+          <div className="ml-3 flex shrink-0 flex-col items-end gap-1">
+            <span className="tabular rounded-full border border-border px-2.5 py-1 font-mono text-xs tracking-widest text-muted-foreground">
+              {show.joinCode}
+            </span>
+            {health === 'degraded' && (
+              <span className="text-[0.6875rem] leading-none text-muted-foreground">
+                reconectando
+              </span>
+            )}
+          </div>
         </div>
       </header>
 

@@ -418,12 +418,19 @@ export const mockApi: VotePlayApi = {
     return { ...p };
   },
 
-  subscribeShow(showId, sessionId, onState) {
+  subscribeShow(showId, sessionId, observer) {
     const s = byId(showId);
-    if (!s) return () => {};
-    const emit = () => onState(snapshot(s, sessionId));
+    if (!s) {
+      observer.onHealth?.('offline');
+      return () => {};
+    }
+    const emit = () => observer.onState(snapshot(s, sessionId));
     s.listeners.add(emit);
     emit();
+    // Em memória não existe rede para cair: o mock é sempre 'live'. Reportar
+    // mesmo assim mantém os dois providers com o mesmo contrato — a UI nunca
+    // precisa saber qual está por baixo.
+    observer.onHealth?.('live');
     return () => {
       s.listeners.delete(emit);
     };

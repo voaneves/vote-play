@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, ApiError } from '@/lib/api';
+import type { ConnectionHealth } from '@/lib/api/types';
 import { ShowContext, type ShowContextValue } from './context';
 import type { AudienceSession, ShowPublic, ShowState } from '@/types/domain';
 
@@ -36,6 +37,8 @@ export function ShowProvider({
 }) {
   const [connection, setConnection] = useState<Connection>({ status: 'loading' });
   const [state, setState] = useState<ShowState | null>(null);
+  const [health, setHealth] = useState<ConnectionHealth>('connecting');
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const [clockOffsetMs, setClockOffsetMs] = useState(0);
   const [attempt, setAttempt] = useState(0);
   const [settledAttempt, setSettledAttempt] = useState(0);
@@ -46,6 +49,8 @@ export function ShowProvider({
     setSettledAttempt(attempt);
     setConnection({ status: 'loading' });
     setState(null);
+    setHealth('connecting');
+    setLastSyncedAt(null);
   }
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
@@ -65,10 +70,16 @@ export function ShowProvider({
 
         setConnection({ status: 'ready', show, session: activeSession });
 
-        unsubscribe = api.subscribeShow(show.id, activeSession.id, (next) => {
-          if (cancelled) return;
-          setState(next);
-          setClockOffsetMs(new Date(next.serverTime).getTime() - Date.now());
+        unsubscribe = api.subscribeShow(show.id, activeSession.id, {
+          onState: (next) => {
+            if (cancelled) return;
+            setState(next);
+            setLastSyncedAt(Date.now());
+            setClockOffsetMs(new Date(next.serverTime).getTime() - Date.now());
+          },
+          onHealth: (next) => {
+            if (!cancelled) setHealth(next);
+          },
         });
       } catch (err) {
         if (cancelled) return;
@@ -95,10 +106,12 @@ export function ShowProvider({
       show: connection.status === 'ready' ? connection.show : null,
       session: connection.status === 'ready' ? connection.session : null,
       state,
+      health,
+      lastSyncedAt,
       clockOffsetMs,
       retry,
     }),
-    [connection, state, clockOffsetMs, retry],
+    [connection, state, health, lastSyncedAt, clockOffsetMs, retry],
   );
 
   return <ShowContext.Provider value={value}>{children}</ShowContext.Provider>;

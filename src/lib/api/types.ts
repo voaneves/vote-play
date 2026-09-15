@@ -27,6 +27,30 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Saúde da conexão com o show, do ponto de vista da plateia.
+ *
+ * A distinção que importa é entre `degraded` e `offline`: sem websocket mas com
+ * polling funcionando, o placar atrasa alguns segundos e ninguém percebe — avisar
+ * ali seria alarme falso. Sem nada chegando, a tela está **mentindo**: mostra um
+ * placar velho como se fosse o atual, e isso precisa ser dito.
+ */
+export type ConnectionHealth =
+  /** Primeira carga, ou reassinando depois de uma queda. */
+  | 'connecting'
+  /** Websocket de pé: o placar muda no instante em que alguém vota. */
+  | 'live'
+  /** Sem websocket, mas o polling está trazendo estado. Atraso de segundos. */
+  | 'degraded'
+  /** Nada chega. O que está na tela é passado. */
+  | 'offline';
+
+export interface ShowObserver {
+  onState: (state: ShowState) => void;
+  /** Chamado só quando o estado muda de verdade — nunca repete o mesmo valor. */
+  onHealth?: (health: ConnectionHealth) => void;
+}
+
 export interface JoinResult {
   show: ShowPublic;
   session: AudienceSession;
@@ -79,11 +103,7 @@ export interface VotePlayApi {
   setSessionInstagram(sessionId: string, handle: string): Promise<{ instagramHandle: string }>;
 
   /** Assina o estado do show. Retorna a função de cancelamento. */
-  subscribeShow(
-    showId: string,
-    sessionId: string,
-    onState: (state: ShowState) => void,
-  ): () => void;
+  subscribeShow(showId: string, sessionId: string, observer: ShowObserver): () => void;
 }
 
 /**

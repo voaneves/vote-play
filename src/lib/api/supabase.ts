@@ -4,6 +4,7 @@ import { getDeviceHash } from '@/lib/deviceHash';
 import type { ShowState } from '@/types/domain';
 import {
   ApiError,
+  type ConnectionHealth,
   type JoinResult,
   type RequestIntentInput,
   type VoteIntentInput,
@@ -18,6 +19,16 @@ import {
  * devolvem exatamente o formato do domínio — por isso quase não há conversão
  * aqui. Ver supabase/migrations/…_public_api.sql.
  */
+
+/** Evento do Postgres vem em rajada quando uma rodada fecha; agrupa. */
+const EVENT_DEBOUNCE_MS = 120;
+/** Com websocket de pé: rede de segurança para evento perdido. */
+const HEARTBEAT_MS = 15_000;
+/** Sem websocket: o polling vira o transporte e começa agressivo. */
+const DEGRADED_MIN_MS = 2_000;
+const DEGRADED_MAX_MS = 10_000;
+/** Uma falha isolada é ruído de rede; duas seguidas é a tela mentindo. */
+const OFFLINE_AFTER_FAILURES = 2;
 
 function translate(error: { message: string; code?: string } | null, fallback: string): never {
   const message = error?.message ?? fallback;
@@ -117,49 +128,150 @@ export const supabaseApi: VotePlayApi = {
    * servidor. Os eventos vêm em rajada quando a plateia vota, então há um
    * debounce curto para não disparar uma busca por voto.
    */
-  subscribeShow(showId, sessionId, onState) {
+  subscribeShow(showId, sessionId, observer) {
     const supabase = getSupabase();
+
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    let poll: ReturnType<typeof setTimeout> | null = null;
+    let channel: RealtimeChannel | null = null;
+
+    let socketUp = false;
+    let failures = 0;
+    let backoff = DEGRADED_MIN_MS;
+    let health: ConnectionHealth | null = null;
+
+    /** Só avisa quando muda: a UI não precisa de ruído a cada tick do polling. */
+    const setHealth = (next: ConnectionHealth) => {
+      if (cancelled || health === next) return;
+      health = next;
+      observer.onHealth?.(next);
+    };
+
+    const currentHealth = (): ConnectionHealth => {
+      if (failures >= OFFLINE_AFTER_FAILURES) return 'offline';
+      if (socketUp) return 'live';
+      return 'degraded';
+    };
 
     const refresh = async () => {
       if (cancelled) return;
       try {
         const state = await supabaseApi.getShowState(showId, sessionId);
-        if (!cancelled) onState(state);
+        if (cancelled) return;
+        failures = 0;
+        backoff = DEGRADED_MIN_MS;
+        observer.onState(state);
+        setHealth(currentHealth());
       } catch {
-        /* falha momentânea: o próximo evento ou o polling de reconexão resolve */
+        if (cancelled) return;
+        failures += 1;
+        // Só cresce a espera depois que o websocket já caiu: com ele de pé, a
+        // falha é de uma consulta isolada e a próxima já tende a passar.
+        if (!socketUp) backoff = Math.min(backoff * 2, DEGRADED_MAX_MS);
+        setHealth(currentHealth());
       }
     };
 
-    const schedule = () => {
-      if (timer) return;
-      timer = setTimeout(() => {
-        timer = null;
+    const scheduleDebounced = () => {
+      if (debounce) return;
+      debounce = setTimeout(() => {
+        debounce = null;
         void refresh();
-      }, 120);
+      }, EVENT_DEBOUNCE_MS);
     };
 
-    const channel: RealtimeChannel = supabase
-      .channel(`show:${showId}`)
-      .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'round_candidates' }, schedule)
-      .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'rounds', filter: `show_id=eq.${showId}` }, schedule)
-      .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'direct_requests', filter: `show_id=eq.${showId}` }, schedule)
-      .subscribe();
+    /**
+     * Um timer só, reagendado a cada ciclo. Com o websocket de pé ele é rede de
+     * segurança (evento perdido, aba dormindo); sem ele, é o transporte.
+     * `setTimeout` encadeado em vez de `setInterval` para nunca empilhar consultas
+     * quando a rede está lenta.
+     */
+    const loop = () => {
+      if (poll) clearTimeout(poll);
+      if (cancelled || document.hidden) return;
+      const wait = socketUp ? HEARTBEAT_MS : backoff;
+      poll = setTimeout(() => {
+        void refresh().finally(loop);
+      }, wait);
+    };
 
+    const subscribe = () => {
+      if (cancelled) return;
+      if (channel) void supabase.removeChannel(channel);
+
+      channel = supabase
+        .channel(`show:${showId}`)
+        .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'round_candidates' }, scheduleDebounced)
+        .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'rounds', filter: `show_id=eq.${showId}` },
+            scheduleDebounced)
+        .on('postgres_changes',
+            { event: '*', schema: 'public', table: 'direct_requests', filter: `show_id=eq.${showId}` },
+            scheduleDebounced)
+        .subscribe((status) => {
+          if (cancelled) return;
+          if (status === 'SUBSCRIBED') {
+            socketUp = true;
+            // Reassinar deixa um buraco: o que mudou enquanto estávamos fora não
+            // gera evento. Uma leitura imediata fecha esse buraco.
+            void refresh();
+          } else {
+            // CHANNEL_ERROR, TIMED_OUT, CLOSED — o polling assume o transporte.
+            socketUp = false;
+            setHealth(currentHealth());
+          }
+          loop();
+        });
+    };
+
+    /** Voltar para a aba, ou para a rede, invalida tudo que está na tela. */
+    const wakeUp = () => {
+      if (cancelled || document.hidden) return;
+      failures = 0;
+      backoff = DEGRADED_MIN_MS;
+      setHealth('connecting');
+      if (!socketUp) subscribe();
+      void refresh();
+      loop();
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        // Celular no bolso não precisa consultar nada — e 80 celulares
+        // consultando no bolso é conexão do Supabase queimada à toa.
+        if (poll) clearTimeout(poll);
+        poll = null;
+      } else {
+        wakeUp();
+      }
+    };
+
+    const onOffline = () => {
+      if (cancelled) return;
+      socketUp = false;
+      failures = OFFLINE_AFTER_FAILURES;
+      setHealth('offline');
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('online', wakeUp);
+    window.addEventListener('offline', onOffline);
+
+    setHealth('connecting');
+    subscribe();
     void refresh();
-
-    // Rede de segurança: wi-fi de bar derruba websocket sem avisar.
-    const heartbeat = setInterval(() => void refresh(), 15000);
+    loop();
 
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
-      clearInterval(heartbeat);
-      void supabase.removeChannel(channel);
+      if (debounce) clearTimeout(debounce);
+      if (poll) clearTimeout(poll);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('online', wakeUp);
+      window.removeEventListener('offline', onOffline);
+      if (channel) void supabase.removeChannel(channel);
     };
   },
 };

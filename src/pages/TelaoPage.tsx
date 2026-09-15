@@ -1,5 +1,6 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { ShowProvider } from '@/features/show/ShowProvider';
+import { CloudOff } from 'lucide-react';
 import { useShow } from '@/features/show/context';
 import { useCountdown } from '@/hooks/useCountdown';
 import { useQrDataUrl } from '@/hooks/useQrDataUrl';
@@ -24,7 +25,7 @@ export default function TelaoPage() {
 }
 
 function TelaoScreen() {
-  const { show, state, clockOffsetMs, status } = useShow();
+  const { show, state, clockOffsetMs, status, health } = useShow();
   const round = state?.round ?? null;
   const { secondsLeft, isRunningOut } = useCountdown(
     round?.closesAt ?? null,
@@ -44,6 +45,23 @@ function TelaoScreen() {
 
   return (
     <main className="grid min-h-[100dvh] gap-8 p-8 lg:grid-cols-[420px_1fr] lg:p-12">
+      {/*
+        No telão o aviso é ainda mais necessário que no celular: ninguém está
+        olhando para a tela esperando erro, e um placar congelado num projetor
+        passa por placar real a noite inteira. Fica num canto, grande o bastante
+        para o artista ver do palco e discreto o bastante para não roubar a cena.
+      */}
+      {health === 'offline' && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-6 top-6 z-20 flex items-center gap-3 rounded-full bg-destructive px-5 py-2.5 text-xl font-semibold text-destructive-foreground"
+        >
+          <CloudOff className="h-6 w-6" aria-hidden />
+          Sem conexão
+        </div>
+      )}
+
       <aside className="flex flex-col items-center justify-center text-center">
         <p className="text-xl text-muted-foreground">Vote pelo celular</p>
         {qr && (

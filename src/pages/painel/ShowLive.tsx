@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useCountdown } from '@/hooks/useCountdown';
 import { formatClock } from '@/lib/format';
+import { downloadCsv, slugify, toCsv } from '@/lib/csv';
+import { ShowSummaryCard } from '@/components/painel/ShowSummaryCard';
 import { cn } from '@/lib/utils';
 import {
   addSongsToShow,
@@ -39,6 +41,8 @@ export default function ShowLive() {
     queryKey: ['participants', id],
     queryFn: () => listParticipants(id),
     enabled: show.data?.vote_mode === 'instagram',
+    // durante o show a lista cresce; parada, não há o que buscar
+    refetchInterval: show.data?.status === 'live' ? 10_000 : false,
   });
 
   const round = useQuery({
@@ -235,6 +239,8 @@ export default function ShowLive() {
         )}
       </section>
 
+      <ShowSummaryCard showId={id} live={show.data.status === 'live'} />
+
       {/* quem participou — só faz sentido no modo Instagram */}
       {show.data.vote_mode === 'instagram' && (
         <section className="vp-surface mt-4 p-5">
@@ -277,21 +283,46 @@ export default function ShowLive() {
           </ul>
 
           {(participants.data?.length ?? 0) > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                const linhas = (participants.data ?? [])
-                  .map((p) => `@${p.instagram_handle}`)
-                  .join('\n');
-                void navigator.clipboard.writeText(linhas).then(
-                  () => toast.success('Lista copiada.'),
-                  () => toast.error('Não foi possível copiar.'),
-                );
-              }}
-              className="vp-focus mt-4 text-sm text-primary underline underline-offset-4"
-            >
-              Copiar todos os @
-            </button>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  const linhas = (participants.data ?? [])
+                    .map((p) => `@${p.instagram_handle}`)
+                    .join('\n');
+                  void navigator.clipboard.writeText(linhas).then(
+                    () => toast.success('Lista copiada.'),
+                    () => toast.error('Não foi possível copiar.'),
+                  );
+                }}
+                className="vp-focus text-primary underline underline-offset-4"
+              >
+                Copiar todos os @
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const rows = participants.data ?? [];
+                  downloadCsv(
+                    `participantes-${slugify(show.data?.title ?? '')}.csv`,
+                    toCsv(rows, [
+                      { header: 'instagram', value: (p) => `@${p.instagram_handle}` },
+                      { header: 'apelido', value: (p) => p.nickname ?? '' },
+                      { header: 'votos', value: (p) => p.votos },
+                      {
+                        header: 'entrou em',
+                        value: (p) => new Date(p.entrou_em).toLocaleString('pt-BR'),
+                      },
+                    ]),
+                  );
+                  toast.success(`${rows.length} participantes exportados.`);
+                }}
+                className="vp-focus text-primary underline underline-offset-4"
+              >
+                Baixar CSV
+              </button>
+            </div>
           )}
         </section>
       )}

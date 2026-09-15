@@ -224,6 +224,55 @@ export async function listParticipants(showId: string): Promise<ParticipantRow[]
   return (data ?? []) as ParticipantRow[];
 }
 
+export interface SummaryRoundRow {
+  id: string;
+  seq: number;
+  label: string | null;
+  status: string;
+  settledAt: string | null;
+  totalVotes: number;
+  totalWeight: number;
+  amountCents: number;
+  winner: { title: string; artistName: string; weight: number; votes: number } | null;
+  runnersUp: { title: string; weight: number }[];
+}
+
+export interface ShowSummary {
+  show: {
+    id: string;
+    title: string;
+    venue: string | null;
+    city: string | null;
+    status: ShowStatus;
+    voteMode: VoteMode;
+    joinCode: string;
+    startedAt: string | null;
+    endedAt: string | null;
+  };
+  totals: {
+    rounds: number;
+    participants: number;
+    withInstagram: number;
+    votes: number;
+    amountCents: number;
+  };
+  rounds: SummaryRoundRow[];
+}
+
+/**
+ * O que aconteceu na noite: rodadas, vencedoras e totais.
+ *
+ * Os totais vêm dos contadores denormalizados da rodada, a mesma fonte que
+ * alimentou o placar ao vivo — somar as linhas de `votes` daria um número que
+ * pode divergir do que a plateia viu, e aí o artista tem razão em desconfiar
+ * dos dois.
+ */
+export async function getShowSummary(showId: string): Promise<ShowSummary> {
+  const { data, error } = await getSupabase().rpc('show_summary', { p_show_id: showId });
+  if (error) throw new Error(error.message);
+  return data as ShowSummary;
+}
+
 /** Rede de segurança caso o pg_cron esteja fora: o painel faz a rodada andar. */
 export async function tickRounds() {
   const { error } = await getSupabase().rpc('tick_rounds');
