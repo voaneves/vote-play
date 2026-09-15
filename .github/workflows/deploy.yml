@@ -15,7 +15,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A suíte do banco roda ANTES do deploy, e o deploy depende dela.
+  #
+  # Motivo concreto: em 15/09 a migration …140000_join_show_status trocou o erro
+  # de "show em rascunho" de no_data_found para invalid_parameter_value, o teste
+  # novo foi escrito e o 05_public_api.sql não foi atualizado junto. A suíte
+  # ficou vermelha por um dia inteiro sem ninguém notar — porque só rodava
+  # quando alguém lembrava de rodar. Teste que depende de memória informa o
+  # estado de ontem.
+  #
+  # O runner ubuntu já traz o PostgreSQL instalado (parado); o run.sh sobe um
+  # servidor próprio, só em socket unix, e não encosta em nada mais.
+  banco:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Conferir o PostgreSQL do runner
+        run: |
+          ls -d /usr/lib/postgresql/*/bin || {
+            echo "::error::PostgreSQL não encontrado no runner — a suíte do banco precisa dele"
+            exit 1
+          }
+
+      - name: Suíte do banco
+        # `bash <arquivo>` em vez de `./<arquivo>`: o run.sh está no índice do
+        # git como 100644 (sem bit de execução), porque o repositório é editado
+        # no Windows, onde esse bit não existe. Chamar pelo interpretador é
+        # imune a isso — e não depende de ninguém lembrar de um chmod.
+        run: bash ./supabase/tests/run.sh
+
   deploy:
+    needs: banco
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -65,7 +97,7 @@ jobs:
         run: npm run build
 
       - name: Fallback de SPA para links profundos
-        # GitHub Pages não tem rewrite: /vote-play/s/DEMO01 devolve 404.
+        # GitHub Pages não tem rewrite: /vote-play/s/PAGAR1 devolve 404.
         # Servindo o próprio index.html como 404.html, a URL é preservada e o router assume.
         run: cp dist/index.html dist/404.html
 

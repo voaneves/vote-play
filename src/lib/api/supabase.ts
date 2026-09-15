@@ -14,10 +14,14 @@ import {
 /**
  * Implementação sobre o Supabase.
  *
- * A plateia nunca toca nas tabelas: fala apenas com duas RPCs de contrato
- * estreito (`join_show` e `get_show_state`), que rodam SECURITY DEFINER e
- * devolvem exatamente o formato do domínio — por isso quase não há conversão
- * aqui. Ver supabase/migrations/…_public_api.sql.
+ * A plateia nunca toca nas tabelas: fala apenas com RPCs de contrato estreito
+ * (`join_show`, `get_show_state`, `cast_free_vote`, `set_session_instagram`,
+ * `mark_instagram_follow_click`), que rodam SECURITY DEFINER e devolvem
+ * exatamente o formato do domínio — por isso quase não há conversão aqui.
+ * Ver supabase/migrations/…_public_api.sql.
+ *
+ * O Pix é Fase 7: os três métodos de pagamento abaixo falham de propósito, em
+ * voz alta, em vez de fingir sucesso.
  */
 
 /** Evento do Postgres vem em rajada quando uma rodada fecha; agrupa. */
@@ -79,7 +83,7 @@ export const supabaseApi: VotePlayApi = {
 
   async createVoteIntent(_input: VoteIntentInput) {
     throw new ApiError(
-      'O pagamento via Pix entra na Fase 4. Use VITE_API_PROVIDER=mock para ver o fluxo completo.',
+      'O pagamento via Pix entra na Fase 7. Use VITE_API_PROVIDER=mock para ver o fluxo completo.',
       'unknown',
     );
   },
@@ -103,11 +107,11 @@ export const supabaseApi: VotePlayApi = {
   },
 
   async createRequestIntent(_input: RequestIntentInput) {
-    throw new ApiError('O pedido direto com Pix entra na Fase 4.', 'unknown');
+    throw new ApiError('O pedido direto com Pix entra na Fase 8.', 'unknown');
   },
 
   async getPaymentStatus() {
-    throw new ApiError('Pagamentos entram na Fase 4.', 'unknown');
+    throw new ApiError('Pagamentos entram na Fase 7.', 'unknown');
   },
 
   async markInstagramFollowClick(sessionId) {

@@ -22,9 +22,21 @@ npm run dev
 
 A aplicação sobe em `http://localhost:8080/vote-play/`.
 
-Sem backend configurado (`VITE_API_PROVIDER=mock`), tudo roda contra um provider em memória.
-Use o código **`TESTE1`** para entrar no show de demonstração — a votação simula outras
-pessoas votando e confirma o "Pix" automaticamente após 5 segundos.
+Sem backend configurado, tudo roda contra um provider em memória, com três shows de
+demonstração — um por modo de votação:
+
+| Código | Modo | O que testar |
+|---|---|---|
+| `PAGAR1` | `pix` | Seletor de valor, QR Pix e confirmação (simulada após 5 s) |
+| `GRAM99` | `instagram` | Portão do perfil: tocar em Seguir, declarar o @, votar |
+| `FREE01` | `free` | Voto grátis e direto, um por rodada |
+
+Nos três, a votação simula outras pessoas votando. **`supabase/seed.sql` cria os mesmos
+três códigos no banco**, então trocar de provider não muda o que se digita na entrada.
+
+Os códigos usam o alfabeto Crockford, sem `I`, `L`, `O` e `U` — o que parece um "i" é um
+"1" e o que parece um "o" é um zero. Tanto o mock quanto o seed recusam um código fora
+desse alfabeto em vez de deixá-lo quebrar na mão de quem for digitar.
 
 ## Rotas
 
@@ -43,12 +55,14 @@ pessoas votando e confirma o "Pix" automaticamente após 5 segundos.
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | Build de produção em `dist/` |
 | `npm run preview` | Serve o build local |
+| `npm run typecheck` | TypeScript nos dois projetos (a raiz sozinha não checa nada) |
 | `npm run lint` | ESLint |
+| `./supabase/tests/run.sh` | Suíte do banco num Postgres descartável |
 
 ## Deploy
 
 Push na `main` dispara o workflow do GitHub Pages. O build copia `index.html` para
-`404.html` para que links profundos (`/vote-play/s/TESTE1`) funcionem em hospedagem estática.
+`404.html` para que links profundos (`/vote-play/s/PAGAR1`) funcionem em hospedagem estática.
 
 ## Componentes de UI
 

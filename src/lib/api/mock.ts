@@ -22,10 +22,14 @@ import {
 /**
  * Provider em memória para desenvolvimento.
  *
- * Dois shows de demonstração, um por modo de votação, para o fluxo inteiro ser
+ * Três shows de demonstração, um por modo de votação, para o fluxo inteiro ser
  * verificável sem backend:
- *   TESTE1 — paid_weighted, o voto passa pelo Pix
- *   FREE01 — free_with_tip, um voto grátis por rodada
+ *   PAGAR1 — pix, todo voto passa pelo Pix
+ *   GRAM99 — instagram, voto grátis atrás do portão do perfil
+ *   FREE01 — free, um voto grátis por rodada
+ *
+ * São os MESMOS códigos que `supabase/seed.sql` cria no banco: trocar de
+ * provider não deve obrigar ninguém a trocar o que digita na tela de entrada.
  *
  * Os códigos respeitam o alfabeto Crockford (sem I, L, O, U) — há uma asserção
  * em desenvolvimento porque errar isso já custou caro mais de uma vez.
@@ -134,7 +138,7 @@ function createMockShow(
 }
 
 const SHOWS: Record<string, MockShow> = {
-  TESTE1: createMockShow('TESTE1', 'Ensaio Aberto', 'pix'),
+  PAGAR1: createMockShow('PAGAR1', 'Ensaio Aberto', 'pix'),
   FREE01: createMockShow('FREE01', 'Sarau da Casa', 'free'),
   GRAM99: createMockShow('GRAM99', 'Quinta Acústica', 'instagram', 'banda.oficial'),
 };
@@ -149,9 +153,9 @@ if (import.meta.env.DEV) {
   }
 }
 
-SHOWS.TESTE1.queue.push({
+SHOWS.PAGAR1.queue.push({
   id: uid(),
-  showId: SHOWS.TESTE1.show.id,
+  showId: SHOWS.PAGAR1.show.id,
   title: 'Wonderwall',
   artistName: 'Oasis',
   message: 'Pra Ana, que odeia essa música.',
@@ -237,7 +241,7 @@ setInterval(() => {
   }
 }, 4000);
 
-/** Fecha a rodada no tempo e abre a próxima, como o cron fará na Fase 3. */
+/** Fecha a rodada no tempo e abre a próxima, como tick_rounds() faz no banco. */
 setInterval(() => {
   for (const s of Object.values(SHOWS)) {
     if (s.round.status !== 'open' || !s.round.closesAt) continue;
@@ -459,6 +463,3 @@ export const mockApi: VotePlayApi = {
     };
   },
 };
-
-export const MOCK_DEMO_CODE = 'TESTE1';
-export const MOCK_FREE_CODE = 'FREE01';

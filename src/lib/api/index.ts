@@ -52,7 +52,16 @@ export const api: VotePlayApi = {
 
 export * from './types';
 
-/** Códigos dos shows de demonstração — existem só no provider mock. */
-export const MOCK_DEMO_CODE = 'TESTE1';
+/**
+ * Códigos dos shows de demonstração, um por modo de votação.
+ *
+ * Vivem aqui, e não em `mock.ts`, porque a landing os exibe mesmo quando o
+ * provider é o Supabase — importá-los do mock arrastaria o provider inteiro
+ * para o bundle de quem nunca vai usá-lo.
+ *
+ * `supabase/seed.sql` cria os mesmos três códigos no banco, então eles valem
+ * nos dois providers.
+ */
+export const MOCK_DEMO_CODE = 'PAGAR1';
 export const MOCK_FREE_CODE = 'FREE01';
 export const MOCK_INSTAGRAM_CODE = 'GRAM99';

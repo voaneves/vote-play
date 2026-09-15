@@ -11,7 +11,15 @@ export type ShowStatus = 'draft' | 'ready' | 'live' | 'paused' | 'ended' | 'canc
  *   free      — voto grátis sem portão
  */
 export type VoteMode = 'pix' | 'instagram' | 'free';
-export type RoundStatus = 'draft' | 'open' | 'closed' | 'settled' | 'cancelled';
+/**
+ * Ciclo da rodada. `closing` é o estado que separa o fim da VOTAÇÃO do fim da
+ * APURAÇÃO: o cronômetro zerou e ninguém vota mais, mas os Pix já emitidos
+ * ainda podem chegar dentro da carência.
+ *
+ * Dizia `closed` aqui até 15/09 — nome que o enum do Postgres nunca teve, então
+ * o tipo descrevia um estado que jamais chegaria pela rede.
+ */
+export type RoundStatus = 'draft' | 'open' | 'closing' | 'settled' | 'cancelled';
 export type VoteStatus = 'pending' | 'confirmed' | 'expired' | 'refunded' | 'voided';
 export type RequestStatus =
   | 'pending_payment'

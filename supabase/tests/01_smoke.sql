@@ -15,8 +15,8 @@ declare
   v_exp    timestamptz;
   v_n      int;
 begin
-  select id into v_show from shows where join_code = 'TESTE1';
-  assert v_show is not null, 'seed não criou o show TESTE1';
+  select id into v_show from shows where join_code = 'PAGAR1';
+  assert v_show is not null, 'seed não criou o show PAGAR1';
 
   select * into v_round from rounds where show_id = v_show and status = 'open';
   assert v_round.id is not null, 'seed não deixou uma rodada aberta';

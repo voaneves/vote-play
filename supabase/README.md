@@ -7,22 +7,32 @@ Schema, funções, RLS e seed do Supabase. Referência completa em `../plan.md`,
 ```
 supabase/
 ├─ config.toml                 configuração do CLI (supabase start / db diff)
-├─ seed.sql                    artista, repertório e show TESTE1 no ar — SÓ desenvolvimento
-├─ migrations/
+├─ seed.sql                    artista, repertório e TRÊS shows no ar — SÓ desenvolvimento
+├─ migrations/                 19 arquivos, aplicados em ordem de nome
 │  ├─ …120000_enums.sql        tipos do domínio
 │  ├─ …120100_tables.sql       13 tabelas
 │  ├─ …120200_functions.sql    regras de rodada, voto e pagamento
 │  ├─ …120300_triggers.sql     apuração do placar e travas de integridade
 │  ├─ …120400_rls.sql          Row Level Security
 │  ├─ …120450_grants.sql       privilégios de tabela e de função
-│  └─ …120500_realtime_and_cron.sql   publicação de Realtime + pg_cron
+│  ├─ …120500_realtime_and_cron.sql   publicação de Realtime + pg_cron
+│  ├─ …120600_public_api.sql   join_show e get_show_state (a plateia não toca em tabela)
+│  ├─ …120900_free_vote.sql    cast_free_vote e o índice de um voto por rodada
+│  ├─ …121000_instagram_gate.sql      modos pix/instagram/free e o portão do @
+│  ├─ …1517*                   lote de correções de auditoria (ver plan.md, 12.1)
+│  └─ …                        as demais, em ordem cronológica
 └─ tests/
    ├─ 00_supabase_stub.sql     emula auth.users/auth.uid() fora do Supabase
-   ├─ 01_smoke.sql             ciclo completo de uma rodada
-   ├─ 02_settlement_grace.sql  janela de apuração e Pix tardio
-   ├─ 03_rls.sql               a chave anon não passa do placar
+   ├─ 01…11                    rodada, apuração, RLS, painel, voto grátis, Instagram
+   ├─ 12_tick_scope.sql        tick_rounds() na mão do artista não toca em show alheio
+   ├─ 13_join_code.sql         código exclusivo desde o rascunho; reciclado não confunde
+   ├─ 14_free_vote_limit.sql   a configuração não promete mais que o índice cumpre
+   ├─ 15_expire_payments.sql   contagem do vencimento e queda de voto e pedido junto
    └─ run.sh                   roda tudo num Postgres descartável
 ```
+
+Os três shows do seed são `PAGAR1` (modo `pix`), `GRAM99` (modo `instagram`) e `FREE01`
+(modo `free`) — os mesmos códigos do provider em memória, de propósito.
 
 ## Aplicar no projeto do Supabase
 
@@ -120,8 +130,12 @@ Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa d
    `rounds` e `direct_requests` estão na publicação `supabase_realtime`.
 2. **pg_cron**: ative em *Database → Extensions* se ainda não estiver. A migration
    agenda `tick_rounds()` a cada 10s e `expire_stale_payments()` a cada minuto.
-   Sem pg_cron, o painel do artista chama `tick_rounds()` sozinho — por isso ela
-   também é liberada para `authenticated`.
+   Sem pg_cron, o painel chama `tick_rounds()` a cada 5s enquanto houver rodada ativa
+   (`src/pages/painel/ShowLive.tsx`) — por isso ela também é liberada para
+   `authenticated`, escopada aos shows do próprio artista.
+   **Atenção:** essa rede de segurança só cobre o show que estiver aberto no painel.
+   `expire_stale_payments()` não tem equivalente no front e continua dependendo do
+   pg_cron — o que só passa a importar na Fase 7, quando houver dinheiro de verdade.
 3. **Auth**: em *Authentication → URL Configuration*, adicione a URL do GitHub
    Pages às redirect URLs.
 4. **Chaves**: copie a URL e a `anon` para o `.env`. A `service_role`
@@ -135,3 +149,11 @@ Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa d
 - O QR Pix nunca expira depois da apuração da rodada.
 - A chave `anon` lê o placar e mais nada; não escreve em lugar nenhum.
 - Um artista não enxerga nem mexe no show de outro, nem via função do painel.
+- `tick_rounds()` na mão de um artista move a rodada **dele** e não aborta ao encontrar a
+  de outro — sem isso, a rede de segurança do cronômetro deixaria de existir para todos a
+  partir do segundo artista cadastrado.
+- O código de entrada é exclusivo desde o rascunho, e um código reciclado de show
+  encerrado devolve o show que está no ar.
+- `free_votes_per_round` não aceita um valor que o índice único não consiga cumprir.
+- `expire_stale_payments()` devolve quantos pagamentos expiraram — e derruba o voto
+  pendente e o pedido não pago na mesma passada.

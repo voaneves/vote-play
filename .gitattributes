@@ -1,0 +1,19 @@
+# Fim de linha normalizado no repositório.
+#
+# Motivo concreto: um `npx shadcn@latest add` rodado no Windows reescreveu oito
+# arquivos com CRLF e o `git status` passou a mostrar mudança em arquivos cujo
+# conteúdo era idêntico. Diff cheio de ruído é diff que ninguém lê — e revisão
+# que ninguém lê é onde bug passa.
+#
+# `text=auto eol=lf` guarda tudo com LF no repositório; o checkout continua
+# funcionando em qualquer sistema, inclusive Windows.
+* text=auto eol=lf
+
+# Binários: nunca converter.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary

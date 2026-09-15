@@ -29,7 +29,7 @@ begin
   assert v_n = 0, format('anon enxergou %s show(s) fora do ar', v_n);
   select count(*) into v_n from shows where join_code = 'DRAFT1';
   assert v_n = 0, 'anon não pode enxergar um show em rascunho';
-  select count(*) into v_n from shows where join_code = 'TESTE1';
+  select count(*) into v_n from shows where join_code = 'PAGAR1';
   assert v_n = 1, 'anon precisa enxergar o show que está no ar';
 
   select count(*) into v_n from round_candidates;

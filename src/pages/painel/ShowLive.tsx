@@ -20,6 +20,7 @@ import {
   openRound,
   setShowStatus,
   settleRound,
+  tickRounds,
 } from '@/lib/painel/queries';
 
 const ROUND_LABEL: Record<string, string> = {
@@ -94,7 +95,36 @@ export default function ShowLive() {
     onError: fail,
   });
 
-  const active = round.data && ['open', 'closing'].includes(round.data.status);
+  const active = round.data !== null && ['open', 'closing'].includes(round.data?.status ?? '');
+
+  /**
+   * Rede de segurança do cronômetro.
+   *
+   * Quem faz a rodada fechar no horário e apurar é `tick_rounds()`, agendada no
+   * pg_cron a cada 10 segundos. Só que o pg_cron é uma extensão que precisa
+   * estar ativa no projeto: se não estiver — e a migration que a agenda avisa e
+   * segue de propósito, para não travar o `db push` —, a rodada fica aberta
+   * para sempre e o show trava com o cronômetro em 00:00.
+   *
+   * O plano dizia desde a Fase 1 que "o painel chama tick_rounds() sozinho".
+   * Dizia; não chamava. Agora chama, enquanto houver rodada ativa e só então.
+   *
+   * A função é idempotente e escopada ao dono (ver 20260915170000), então
+   * chamá-la a mais não faz nada além de gastar uma consulta. Erro aqui é
+   * engolido: é um reforço, e um toast a cada 5 segundos por causa do reforço
+   * seria pior que o problema que ele cobre.
+   */
+  useQuery({
+    queryKey: ['tick', id],
+    queryFn: async () => {
+      await tickRounds();
+      return Date.now();
+    },
+    enabled: active,
+    refetchInterval: 5000,
+    retry: false,
+  });
+
   const { secondsLeft, isRunningOut } = useCountdown(
     round.data?.status === 'open' ? round.data.closes_at : null,
   );

@@ -20,7 +20,7 @@ export default function PixPage() {
   const { secondsLeft } = useCountdown(payment?.expiresAt ?? null);
 
   /**
-   * Polling de fallback. Na Fase 4 o webhook confirma em ~1s e o realtime avisa;
+   * Polling de fallback. Na Fase 7 o webhook confirma em ~1s e o realtime avisa;
    * este loop é a rede de segurança para quando a notificação não chega.
    */
   useEffect(() => {
