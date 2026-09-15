@@ -53,5 +53,10 @@ plan.md
 # Vite (arquivos temporários de config)
 vite.config.ts.timestamp-*
 
-# Saída do app do Claude (capturas e arquivos entregues no chat)
-Claude outputs/
+# Python dos scripts da marca
+__pycache__/
+*.pyc
+
+# Saídas de ferramentas externas (capturas, exportações, arquivos temporários)
+outputs/
+*.tmp.pdf

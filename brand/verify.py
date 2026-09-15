@@ -1,3 +1,7 @@
+"""Vote Play — verificação de contraste da paleta da marca.
+
+Victor Neves (voaneves.com) · © 2026. Todos os direitos reservados.
+"""
 from colors import hsl_to_rgb, hexs, ratio
 
 T = {

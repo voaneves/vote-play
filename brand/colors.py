@@ -1,4 +1,8 @@
-import json, math
+"""Vote Play — conversão de cor e razão de contraste (WCAG).
+
+Victor Neves (voaneves.com) · © 2026. Todos os direitos reservados.
+"""
+import json, math, pathlib
 
 def hsl_to_rgb(h, s, l):
     s, l = s/100, l/100
@@ -59,4 +63,7 @@ for a,b,label in pairs:
     aa = 'AA' if r >= 4.5 else ('AA grande' if r >= 3 else 'REPROVA')
     print(f"  {label:38} {r:>6}  {aa}")
 
-json.dump({k: hexs(v) for k,v in rgb.items()}, open('/home/claude/brand/palette.json','w'), indent=2, ensure_ascii=False)
+# ao lado deste script, qualquer que seja o diretório de onde ele for chamado
+saida = pathlib.Path(__file__).resolve().parent / 'palette.json'
+saida.write_text(json.dumps({k: hexs(v) for k,v in rgb.items()}, indent=2, ensure_ascii=False), encoding='utf-8')
+print(f"\npaleta escrita em {saida}")

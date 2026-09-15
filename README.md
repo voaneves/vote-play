@@ -1,5 +1,7 @@
 # Vote Play
 
+> Por **[Victor Neves](https://voaneves.com)** · [github.com/voaneves](https://github.com/voaneves)
+
 Aplicativo web para **pedidos e votação de música em shows ao vivo**. A plateia entra pelo
 QR Code ou por um código curto, vota na próxima música pagando via Pix, ou paga um valor
 maior para furar a fila e pedir uma música direto.
@@ -79,3 +81,15 @@ npx shadcn@latest add table select dialog
 Toda comunicação com o backend passa pela interface `VotePlayApi` (`src/lib/api/types.ts`).
 Hoje existe a implementação `mock`; a implementação `supabase` entra sem que nenhum
 componente de UI precise mudar.
+
+---
+
+## Autoria e licença
+
+Projeto concebido, desenhado e desenvolvido por **Victor Neves**
+— [voaneves.com](https://voaneves.com) · [github.com/voaneves](https://github.com/voaneves).
+Isso inclui a arquitetura, o schema do banco, a interface, os textos e a
+identidade visual (`brand/`).
+
+© 2026 Victor Neves. Todos os direitos reservados. Ver [`LICENSE`](LICENSE) —
+o repositório é público para demonstração, não para reúso.

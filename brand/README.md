@@ -1,5 +1,9 @@
 # Marca — Vote Play
 
+> Identidade criada por **[Victor Neves](https://voaneves.com)** para o Vote Play.
+> © 2026 Victor Neves. Todos os direitos reservados.
+
+
 O guia completo está em **`vote-play-brandkit.pdf`** (10 páginas: essência, arquétipos,
 voz, logo, cores, acessibilidade, tipografia, aplicações e tokens).
 

@@ -3,6 +3,26 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "description": "Pedidos e votação de música em shows ao vivo: a plateia entra por QR Code e escolhe a próxima música.",
+  "author": "Victor Neves <victorneves478@gmail.com> (https://voaneves.com)",
+  "license": "UNLICENSED",
+  "homepage": "https://voaneves.github.io/vote-play/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/voaneves/vote-play.git"
+  },
+  "bugs": {
+    "url": "https://github.com/voaneves/vote-play/issues"
+  },
+  "keywords": [
+    "música",
+    "shows",
+    "votação",
+    "pix",
+    "tempo-real",
+    "supabase",
+    "react"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
