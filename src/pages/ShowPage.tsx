@@ -94,6 +94,7 @@ function ShowScreen() {
             <InstagramGate
               profileHandle={show.instagramHandle!}
               sessionId={session.id}
+              alreadyClicked={session.followClickedAt !== null}
               onDone={setHandle}
             />
           ) : (

@@ -31,6 +31,8 @@ export const api: VotePlayApi = {
   getPaymentStatus: async (paymentId) => (await provider()).getPaymentStatus(paymentId),
   setSessionInstagram: async (sessionId, handle) =>
     (await provider()).setSessionInstagram(sessionId, handle),
+  markInstagramFollowClick: async (sessionId) =>
+    (await provider()).markInstagramFollowClick(sessionId),
 
   subscribeShow(showId, sessionId, onState) {
     let unsubscribe: (() => void) | null = null;

@@ -3,7 +3,7 @@ import { ShowProvider } from '@/features/show/ShowProvider';
 import { CloudOff } from 'lucide-react';
 import { useShow } from '@/features/show/context';
 import { useCountdown } from '@/hooks/useCountdown';
-import { useQrDataUrl } from '@/hooks/useQrDataUrl';
+import { VotePlayQr } from '@/components/brand/VotePlayQr';
 import { isValidJoinCode, normalizeJoinCode } from '@/lib/joinCode';
 import { formatClock, percent } from '@/lib/format';
 import { showJoinUrl } from '@/config/env';
@@ -31,7 +31,6 @@ function TelaoScreen() {
     round?.closesAt ?? null,
     clockOffsetMs,
   );
-  const qr = useQrDataUrl(show ? showJoinUrl(show.joinCode) : null, { width: 420 });
 
   if (status !== 'ready' || !show) {
     return (
@@ -64,15 +63,15 @@ function TelaoScreen() {
 
       <aside className="flex flex-col items-center justify-center text-center">
         <p className="text-xl text-muted-foreground">Vote pelo celular</p>
-        {qr && (
-          <img
-            src={qr}
-            alt=""
-            className="mt-6 rounded-2xl bg-white p-4"
-            width={420}
-            height={420}
-          />
-        )}
+        {/*
+          Fundo branco explícito mesmo no tema escuro: projetor perde contraste,
+          e QR escuro sobre parede escura não lê de lugar nenhum da casa.
+        */}
+        <VotePlayQr
+          value={showJoinUrl(show.joinCode)}
+          title="QR Code para entrar no show"
+          className="mt-6 w-[420px] max-w-full rounded-2xl bg-white p-4"
+        />
         <p className="mt-6 text-lg text-muted-foreground">ou use o código</p>
         <p className="tabular mt-1 font-mono text-6xl font-bold tracking-[0.2em]">
           {show.joinCode}

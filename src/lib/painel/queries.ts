@@ -273,6 +273,38 @@ export async function getShowSummary(showId: string): Promise<ShowSummary> {
   return data as ShowSummary;
 }
 
+export interface InstagramMetrics {
+  funnel: { entered: number; clicked: number; declared: number; voted: number };
+  newHandles: number;
+  followers: { before: number | null; after: number | null };
+}
+
+/**
+ * Funil do portão do Instagram.
+ *
+ * NÃO existe "seguidores ganhos" aqui, e a ausência é deliberada: nenhuma API
+ * pública devolve o número de seguidores de um perfil. O que o app apura é o
+ * funil; o antes/depois vem digitado pelo artista e a tela diz isso.
+ */
+export async function getInstagramMetrics(showId: string): Promise<InstagramMetrics> {
+  const { data, error } = await getSupabase().rpc('show_instagram_metrics', {
+    p_show_id: showId,
+  });
+  if (error) throw new Error(error.message);
+  return data as InstagramMetrics;
+}
+
+export async function setInstagramFollowers(
+  showId: string,
+  patch: { before?: number | null; after?: number | null },
+) {
+  const update: Record<string, number | null> = {};
+  if ('before' in patch) update.instagram_followers_before = patch.before ?? null;
+  if ('after' in patch) update.instagram_followers_after = patch.after ?? null;
+  const { error } = await getSupabase().from('shows').update(update).eq('id', showId);
+  if (error) throw new Error(error.message);
+}
+
 /** Rede de segurança caso o pg_cron esteja fora: o painel faz a rodada andar. */
 export async function tickRounds() {
   const { error } = await getSupabase().rpc('tick_rounds');

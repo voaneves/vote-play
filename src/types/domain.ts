@@ -125,6 +125,14 @@ export interface AudienceSession {
    * campo é o registro para o artista, não uma trava.
    */
   instagramHandle: string | null;
+  /**
+   * Quando esta sessão tocou no botão que leva ao perfil do artista.
+   *
+   * É o que destrava o voto na interface — e o topo do funil que o painel
+   * mostra. Volta do servidor para que recarregar a página não obrigue a
+   * pessoa a repetir o passo: ela já foi ao Instagram uma vez.
+   */
+  followClickedAt: string | null;
 }
 
 /**

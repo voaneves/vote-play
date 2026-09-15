@@ -7,6 +7,7 @@ import { useCountdown } from '@/hooks/useCountdown';
 import { formatClock } from '@/lib/format';
 import { downloadCsv, slugify, toCsv } from '@/lib/csv';
 import { ShowSummaryCard } from '@/components/painel/ShowSummaryCard';
+import { InstagramFunnelCard } from '@/components/painel/InstagramFunnelCard';
 import { cn } from '@/lib/utils';
 import {
   addSongsToShow,
@@ -241,7 +242,11 @@ export default function ShowLive() {
 
       <ShowSummaryCard showId={id} live={show.data.status === 'live'} />
 
-      {/* quem participou — só faz sentido no modo Instagram */}
+      {/* funil e lista de participantes — só fazem sentido no modo Instagram */}
+      {show.data.vote_mode === 'instagram' && (
+        <InstagramFunnelCard showId={id} live={show.data.status === 'live'} />
+      )}
+
       {show.data.vote_mode === 'instagram' && (
         <section className="vp-surface mt-4 p-5">
           <h2 className="font-semibold">

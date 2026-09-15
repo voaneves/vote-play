@@ -102,6 +102,15 @@ export interface VotePlayApi {
   /** Registra o @ declarado pela pessoa (portão do modo instagram). */
   setSessionInstagram(sessionId: string, handle: string): Promise<{ instagramHandle: string }>;
 
+  /**
+   * Marca que a pessoa tocou no botão que leva ao perfil do artista.
+   *
+   * Idempotente — o primeiro toque é o que conta. Não é prova de que seguiu, e
+   * nada aqui afirma isso: é o topo do funil do painel e a condição que libera
+   * o voto na tela.
+   */
+  markInstagramFollowClick(sessionId: string): Promise<{ followClickedAt: string }>;
+
   /** Assina o estado do show. Retorna a função de cancelamento. */
   subscribeShow(showId: string, sessionId: string, observer: ShowObserver): () => void;
 }

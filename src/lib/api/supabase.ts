@@ -110,6 +110,14 @@ export const supabaseApi: VotePlayApi = {
     throw new ApiError('Pagamentos entram na Fase 4.', 'unknown');
   },
 
+  async markInstagramFollowClick(sessionId) {
+    const { data, error } = await getSupabase().rpc('mark_instagram_follow_click', {
+      p_session_id: sessionId,
+    });
+    if (error) translate(error, 'Não foi possível registrar o toque.');
+    return data as { followClickedAt: string };
+  },
+
   async setSessionInstagram(sessionId, handle) {
     const { data, error } = await getSupabase().rpc('set_session_instagram', {
       p_session_id: sessionId,

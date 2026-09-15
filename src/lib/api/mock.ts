@@ -50,6 +50,8 @@ interface MockShow {
   votes: Map<string, string>;
   /** sessionId → @ declarado */
   handles: Map<string, string>;
+  /** sessão → quando tocou em "Seguir". Espelha instagram_follow_clicked_at. */
+  clicks: Map<string, string>;
   listeners: Set<() => void>;
 }
 
@@ -127,6 +129,7 @@ function createMockShow(
     votes: new Map(),
     listeners: new Set(),
     handles: new Map(),
+    clicks: new Map(),
   };
 }
 
@@ -171,6 +174,7 @@ const byId = (showId: string) => Object.values(SHOWS).find((s) => s.show.id === 
 const deviceSessions = new Map<string, string>();
 const sessionKey = (code: string) => `vp:mock:session:${code}`;
 const handleKey = (code: string) => `vp:mock:handle:${code}`;
+const clickKey = (code: string) => `vp:mock:click:${code}`;
 
 function readLocal(key: string): string | null {
   try {
@@ -198,6 +202,11 @@ function sessionForDevice(s: MockShow): string {
 
   const storedHandle = readLocal(handleKey(s.show.joinCode));
   if (storedHandle) s.handles.set(id, storedHandle);
+
+  // O toque também sobrevive ao reload, como no provider real — senão o mock
+  // mostraria um portão mais chato que o de produção.
+  const storedClick = readLocal(clickKey(s.show.joinCode));
+  if (storedClick) s.clicks.set(id, storedClick);
 
   return id;
 }
@@ -295,6 +304,7 @@ export const mockApi: VotePlayApi = {
         nickname: null,
         freeVotesUsed: 0,
         instagramHandle: s.handles.get(sessionId) ?? null,
+        followClickedAt: s.clicks.get(sessionId) ?? null,
       },
     };
     return result;
@@ -392,6 +402,19 @@ export const mockApi: VotePlayApi = {
     }, 5000);
 
     return { payment, request };
+  },
+
+  async markInstagramFollowClick(sessionId) {
+    await delay(120);
+    for (const s of Object.values(SHOWS)) {
+      if (s.handles.has(sessionId) || byIdHasSession(s, sessionId)) {
+        const at = s.clicks.get(sessionId) ?? new Date().toISOString();
+        s.clicks.set(sessionId, at);
+        writeLocal(clickKey(s.show.joinCode), at);
+        return { followClickedAt: at };
+      }
+    }
+    return { followClickedAt: new Date().toISOString() };
   },
 
   async setSessionInstagram(sessionId, handle) {
