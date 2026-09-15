@@ -35,8 +35,55 @@ function assertNoSecretKeys(env: Record<string, string>) {
   }
 }
 
+/**
+ * Trava de build contra publicar o backend errado.
+ *
+ * O `src/config/env.ts` também valida isso, mas ele é código de APLICAÇÃO: só
+ * roda no navegador de quem abre a página. Num deploy de CI isso chega tarde
+ * demais — o workflow fica verde, o site vai para o ar e o erro só aparece como
+ * tela branca para a plateia. A checagem precisa estar aqui, onde o build morre
+ * antes de gerar arquivo.
+ *
+ * O caso real que originou isto: o workflow mandava `VITE_API_PROVIDER: mock`
+ * como valor padrão. O deploy passava, o painel do artista falava com o Supabase
+ * (ele não consulta o provider) e a plateia ficava no mock, que só conhece os
+ * códigos de demonstração. Resultado: "Código do show não encontrado" para um
+ * código que existia.
+ */
+function assertProviderConfig(env: Record<string, string>) {
+  const provider = (env.VITE_API_PROVIDER ?? '').trim().toLowerCase();
+  const configured = Boolean(
+    env.VITE_SUPABASE_URL &&
+      (env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY),
+  );
+
+  if (provider !== '' && provider !== 'mock' && provider !== 'supabase') {
+    throw new Error(
+      `\n\n  VITE_API_PROVIDER="${provider}" não é um provider válido.\n` +
+        '  Use "mock", "supabase", ou não defina a variável — sem ela, a presença\n' +
+        '  de VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY é que decide.\n',
+    );
+  }
+
+  if (provider === 'supabase' && !configured) {
+    throw new Error(
+      '\n\n  VITE_API_PROVIDER=supabase, mas falta VITE_SUPABASE_URL e/ou\n' +
+        '  VITE_SUPABASE_PUBLISHABLE_KEY. O build pararia aqui de qualquer forma:\n' +
+        '  publicar assim geraria um site que não fala com backend nenhum.\n' +
+        '  No GitHub: Settings → Secrets and variables → Actions → Variables.\n',
+    );
+  }
+
+  const destino = provider === 'mock' || (provider === '' && !configured)
+    ? 'mock (em memória — só os shows de demonstração)'
+    : `supabase (${env.VITE_SUPABASE_URL})`;
+  console.log(`\n  vote-play: build usando o provider ${destino}\n`);
+}
+
 export default defineConfig(({ mode }) => {
-  assertNoSecretKeys(loadEnv(mode, __dirname, 'VITE_'));
+  const env = loadEnv(mode, __dirname, 'VITE_');
+  assertNoSecretKeys(env);
+  assertProviderConfig(env);
 
   return {
     /**

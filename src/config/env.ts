@@ -30,7 +30,26 @@ if (/^sb_secret_/.test(publishableKey) || /service_role/.test(publishableKey)) {
 }
 
 const isConfigured = Boolean(supabaseUrl && publishableKey);
-const explicitProvider = raw.VITE_API_PROVIDER as ApiProvider | undefined;
+
+/**
+ * `VITE_API_PROVIDER`, normalizada.
+ *
+ * Variável de ambiente ausente em CI vira **string vazia**, não `undefined` —
+ * e `??` não trata string vazia como ausência. Sem este `||`, um
+ * `VITE_API_PROVIDER: ${vars.QUE_NAO_EXISTE}` no workflow faria o provider
+ * virar `''`, que não é nem mock nem supabase.
+ */
+const rawProvider = (raw.VITE_API_PROVIDER || '').trim().toLowerCase();
+
+if (rawProvider !== '' && rawProvider !== 'mock' && rawProvider !== 'supabase') {
+  throw new Error(
+    `VITE_API_PROVIDER="${rawProvider}" não é um provider válido. ` +
+      'Use "mock", "supabase", ou deixe a variável de fora — sem ela, a presença ' +
+      'de VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY é que decide.',
+  );
+}
+
+const explicitProvider = rawProvider === '' ? undefined : (rawProvider as ApiProvider);
 
 /**
  * Qual backend a aplicação usa.

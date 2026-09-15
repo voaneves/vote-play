@@ -47,7 +47,19 @@ jobs:
           # Chaves públicas por design — a segurança fica na RLS do Postgres.
           # A chave secreta (sb_secret_…) NUNCA entra aqui: o vite.config aborta
           # o build se encontrar uma em qualquer variável VITE_*.
-          VITE_API_PROVIDER: ${{ vars.VITE_API_PROVIDER || 'mock' }}
+          #
+          # VITE_API_PROVIDER vai SEM valor padrão, de propósito. Esta linha já
+          # foi `${{ vars.VITE_API_PROVIDER || 'mock' }}` e, sem a variável no
+          # repositório, mandava 'mock' explícito para todo build — o forçado
+          # ganha da configuração, então o site publicado rodava em memória
+          # mesmo com URL e chave presentes, e um código de show real dava
+          # "Código do show não encontrado".
+          #
+          # Sem a variável definida, isto chega como string vazia e o env.ts
+          # trata como ausente: quem decide é a presença da URL e da chave.
+          # Com ela em 'supabase', vira afirmação explícita — e o build QUEBRA
+          # se a URL ou a chave faltarem, em vez de cair no mock calado.
+          VITE_API_PROVIDER: ${{ vars.VITE_API_PROVIDER }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npm run build

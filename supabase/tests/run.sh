@@ -60,7 +60,7 @@ done
 psql -q -d voteplay_test -v ON_ERROR_STOP=1 -f "$SUPA/seed.sql" >/dev/null
 
 fail=0
-for t in "$HERE"/0[1-9]_*.sql; do
+for t in "$HERE"/[01][0-9]_*.sql; do
   name="$(basename "$t")"
   if out="$(psql -d voteplay_test -v ON_ERROR_STOP=1 -f "$t" 2>&1)"; then
     echo "$out" | grep -o 'NOTICE:.*' | sed "s|NOTICE:  |  ✓ |"

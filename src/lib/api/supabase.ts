@@ -35,8 +35,11 @@ function translate(error: { message: string; code?: string } | null, fallback: s
   if (/não encontrado|not found/i.test(message)) {
     throw new ApiError('Código do show não encontrado.', 'show_not_found');
   }
-  if (/não está no ar|indisponível/i.test(message)) {
-    throw new ApiError('Este show não está no ar.', 'show_not_live');
+  // O banco já escreve estas em português, para a plateia, e distingue "ainda
+  // não abriu" de "já terminou" — repassamos o texto dele em vez de achatar os
+  // dois casos numa frase genérica daqui.
+  if (/não está no ar|já terminou|indisponível/i.test(message)) {
+    throw new ApiError(message, 'show_not_live');
   }
   if (/Informe seu @/i.test(message)) {
     throw new ApiError('Informe seu @ do Instagram para votar.', 'instagram_required');
