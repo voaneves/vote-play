@@ -34,5 +34,5 @@ export function getSupabase(): SupabaseClient {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(env.supabaseUrl && env.supabasePublishableKey);
+  return env.isSupabaseConfigured;
 }
