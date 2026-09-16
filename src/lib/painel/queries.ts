@@ -305,6 +305,30 @@ export async function setInstagramFollowers(
   if (error) throw new Error(error.message);
 }
 
+export interface SuspiciousSessionRow {
+  ip_hash_curto: string;
+  sessoes: number;
+  votos: number;
+  primeira: string;
+  ultima: string;
+}
+
+/**
+ * Sessões agrupadas por IP salgado — pista de abuso, nunca veredito.
+ *
+ * Várias sessões no mesmo IP tanto pode ser alguém abrindo abas anônimas quanto
+ * a mesa inteira no wi-fi da casa. O app não bloqueia ninguém com base nisto, e
+ * a tela precisa dizer isso com todas as letras: número que parece acusação e
+ * não é vira artista expulsando cliente do próprio show.
+ */
+export async function listSuspiciousSessions(showId: string): Promise<SuspiciousSessionRow[]> {
+  const { data, error } = await getSupabase().rpc('show_suspicious_sessions', {
+    p_show_id: showId,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SuspiciousSessionRow[];
+}
+
 /** Rede de segurança caso o pg_cron esteja fora: o painel faz a rodada andar. */
 export async function tickRounds() {
   const { error } = await getSupabase().rpc('tick_rounds');

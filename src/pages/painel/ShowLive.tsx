@@ -8,6 +8,7 @@ import { formatClock } from '@/lib/format';
 import { downloadCsv, slugify, toCsv } from '@/lib/csv';
 import { ShowSummaryCard } from '@/components/painel/ShowSummaryCard';
 import { InstagramFunnelCard } from '@/components/painel/InstagramFunnelCard';
+import { SuspiciousSessionsCard } from '@/components/painel/SuspiciousSessionsCard';
 import { cn } from '@/lib/utils';
 import {
   addSongsToShow,
@@ -271,6 +272,7 @@ export default function ShowLive() {
       </section>
 
       <ShowSummaryCard showId={id} live={show.data.status === 'live'} />
+      <SuspiciousSessionsCard showId={id} />
 
       {/* funil e lista de participantes — só fazem sentido no modo Instagram */}
       {show.data.vote_mode === 'instagram' && (

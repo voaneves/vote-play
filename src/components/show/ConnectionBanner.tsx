@@ -1,4 +1,5 @@
 import { CloudOff, RefreshCw } from 'lucide-react';
+import { useOnline } from '@/hooks/useOnline';
 import type { ConnectionHealth } from '@/lib/api/types';
 
 /**
@@ -21,7 +22,14 @@ export function ConnectionBanner({
   health: ConnectionHealth;
   lastSyncedAt: number | null;
 }) {
+  const online = useOnline();
+
   if (health !== 'offline') return null;
+
+  // Aparelho sem rede já tem o OfflineBanner global dizendo isso no topo.
+  // Repetir aqui embaixo seria o segundo aviso idêntico na mesma tela, e é
+  // assim que a plateia aprende a não ler aviso nenhum.
+  if (!online) return null;
 
   return (
     <div

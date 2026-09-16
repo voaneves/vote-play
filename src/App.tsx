@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { env } from '@/config/env';
 import Landing from '@/pages/Landing';
@@ -37,9 +39,11 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster position="top-center" richColors />
+        <OfflineBanner />
         {/* basename vem do Vite: '/vote-play/' no GitHub Pages, '/' em domínio próprio */}
         <BrowserRouter basename={env.basePath}>
-          <Suspense fallback={<RouteFallback />}>
+          <ErrorBoundary>
+            <Suspense fallback={<RouteFallback />}>
               <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/s/:code" element={<ShowPage />} />
@@ -55,7 +59,8 @@ export default function App() {
 
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense>
+            </Suspense>
+          </ErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
