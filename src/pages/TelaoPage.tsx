@@ -18,7 +18,13 @@ export default function TelaoPage() {
   const { code } = useParams<{ code: string }>();
   if (!code || !isValidJoinCode(code)) return <Navigate to="/" replace />;
   return (
-    <ShowProvider key={normalizeJoinCode(code)} joinCode={normalizeJoinCode(code)}>
+    // O telão é a única tela que usa websocket: uma conexão por show cabe no
+    // plano Free, trezentas não. Ver ShowTransport.
+    <ShowProvider
+      key={normalizeJoinCode(code)}
+      joinCode={normalizeJoinCode(code)}
+      transport="realtime"
+    >
       <TelaoScreen />
     </ShowProvider>
   );
@@ -92,7 +98,11 @@ function TelaoScreen() {
             </p>
           ) : (
             <p className="mt-2 text-3xl text-muted-foreground">
-              Próxima rodada em instantes
+              {state?.showStatus === 'ended'
+                ? 'Fim de show. Obrigado!'
+                : state?.showStatus === 'paused'
+                  ? 'Intervalo'
+                  : 'Próxima rodada em instantes'}
             </p>
           )}
         </header>

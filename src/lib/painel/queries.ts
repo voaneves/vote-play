@@ -1,7 +1,13 @@
 import { getSupabase } from '@/lib/supabase/client';
 import type { ShowStatus, VoteMode } from '@/types/domain';
 
-/** Linhas do painel do artista. A RLS garante que só vêm as do próprio dono. */
+/**
+ * Linhas do painel do artista. A RLS garante que só vêm as do próprio dono.
+ *
+ * Isso só passou a ser verdade em …180000: até lá a policy de leitura pública
+ * de `shows` valia também para `authenticated`, e a lista de "Seus shows"
+ * trazia os shows no ar de todos os artistas. O teste 17 guarda o par.
+ */
 
 export interface SongRow {
   id: string;
@@ -131,12 +137,26 @@ export async function createShow(
   );
 }
 
+/**
+ * Muda o status do show.
+ *
+ * `started_at`/`ended_at` são do banco (trigger `shows_status_guard`): o
+ * relógio do celular do artista não decide quando a noite começou, e
+ * despausar não reescreve o início. Encerrar também apura a rodada aberta.
+ *
+ * `.select()` devolve as linhas alteradas. Sem ele, um UPDATE que a RLS
+ * filtra para zero linhas volta SEM erro — o botão "funcionava" e nada mudava.
+ */
 export async function setShowStatus(id: string, status: ShowStatus) {
-  const patch: Record<string, unknown> = { status };
-  if (status === 'live') patch.started_at = new Date().toISOString();
-  if (status === 'ended') patch.ended_at = new Date().toISOString();
-  const { error } = await getSupabase().from('shows').update(patch).eq('id', id);
+  const { data, error } = await getSupabase()
+    .from('shows')
+    .update({ status })
+    .eq('id', id)
+    .select('id');
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error('Não foi possível alterar este show. Ele pertence à sua conta?');
+  }
 }
 
 // ----------------------------------------------------- repertório do show

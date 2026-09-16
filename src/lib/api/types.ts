@@ -38,17 +38,49 @@ export class ApiError extends Error {
 export type ConnectionHealth =
   /** Primeira carga, ou reassinando depois de uma queda. */
   | 'connecting'
-  /** Websocket de pé: o placar muda no instante em que alguém vota. */
+  /**
+   * O estado está chegando pelo transporte previsto: websocket de pé (telão)
+   * ou consultas respondendo (plateia, que só usa polling).
+   */
   | 'live'
-  /** Sem websocket, mas o polling está trazendo estado. Atraso de segundos. */
+  /** Telão sem websocket, com o polling de reserva trazendo estado. Atraso de segundos. */
   | 'degraded'
   /** Nada chega. O que está na tela é passado. */
   | 'offline';
+
+/**
+ * Como o estado chega.
+ *
+ *   poll     — a plateia. Consulta com intervalo adaptativo e versão. O plano
+ *              Free do Supabase tem 200 conexões de Realtime para o projeto
+ *              INTEIRO e 100 mensagens/s; um show cheio não cabe nisso.
+ *   realtime — o telão (uma tela por show). Websocket filtrado pelo show, com
+ *              polling de reserva.
+ */
+export type ShowTransport = 'poll' | 'realtime';
+
+/** Resposta curta de `getShowState` quando a versão enviada ainda vale. */
+export interface ShowStateUnchanged {
+  unchanged: true;
+  serverTime: string;
+  version: string;
+}
 
 export interface ShowObserver {
   onState: (state: ShowState) => void;
   /** Chamado só quando o estado muda de verdade — nunca repete o mesmo valor. */
   onHealth?: (health: ConnectionHealth) => void;
+}
+
+export interface ShowSubscription {
+  unsubscribe: () => void;
+  refresh: () => void;
+}
+
+export function isUnchanged(
+  value: ShowState | ShowStateUnchanged,
+): value is ShowStateUnchanged {
+  return (value as ShowStateUnchanged).unchanged === true;
 }
 
 export interface JoinResult {
@@ -75,17 +107,25 @@ export interface RequestIntentInput {
 
 /**
  * Contrato único entre a UI e o backend.
- * A implementação `mock` roda tudo em memória; a `supabase` chega na Fase 1/4.
+ * A implementação `mock` roda tudo em memória; a `supabase` fala com o banco.
  * Nenhum componente deve falar com Supabase diretamente.
  */
 export interface VotePlayApi {
   join(joinCode: string): Promise<JoinResult>;
-  getShowState(showId: string, sessionId: string): Promise<ShowState>;
+  /**
+   * Snapshot do show. Com `knownVersion` igual à atual, o servidor devolve só
+   * `ShowStateUnchanged` — poucos bytes em vez do placar inteiro.
+   */
+  getShowState(
+    showId: string,
+    sessionId: string,
+    knownVersion?: string | null,
+  ): Promise<ShowState | ShowStateUnchanged>;
 
   /** Cria voto pendente + cobrança Pix. O peso é decidido no servidor. */
   createVoteIntent(input: VoteIntentInput): Promise<{ payment: Payment; voteId: string }>;
   /**
-   * Voto sem pagamento (modos free_*). O limite por rodada é decidido no banco,
+   * Voto sem pagamento (modos instagram e free). O limite por rodada é decidido no banco,
    * não aqui — o cliente só reflete o que o snapshot disser.
    */
   castFreeVote(
@@ -111,8 +151,17 @@ export interface VotePlayApi {
    */
   markInstagramFollowClick(sessionId: string): Promise<{ followClickedAt: string }>;
 
-  /** Assina o estado do show. Retorna a função de cancelamento. */
-  subscribeShow(showId: string, sessionId: string, observer: ShowObserver): () => void;
+  /**
+   * Assina o estado do show. Retorna o cancelamento e um `refresh` para pedir
+   * uma leitura imediata — depois do próprio voto, por exemplo, em vez de
+   * esperar o próximo ciclo.
+   */
+  subscribeShow(
+    showId: string,
+    sessionId: string,
+    observer: ShowObserver,
+    options?: { transport?: ShowTransport },
+  ): ShowSubscription;
 }
 
 /**

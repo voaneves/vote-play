@@ -60,10 +60,16 @@ done
 psql -q -d voteplay_test -v ON_ERROR_STOP=1 -f "$SUPA/seed.sql" >/dev/null
 
 fail=0
+checks=0
 for t in "$HERE"/[01][0-9]_*.sql; do
   name="$(basename "$t")"
+  # o stub já foi aplicado antes das migrations; rodá-lo de novo como teste
+  # só somava os avisos dele ("already exists") à contagem de verificações
+  [ "$name" = "00_supabase_stub.sql" ] && continue
   if out="$(psql -d voteplay_test -v ON_ERROR_STOP=1 -f "$t" 2>&1)"; then
-    echo "$out" | grep -o 'NOTICE:.*' | sed "s|NOTICE:  |  ✓ |"
+    ok="$(echo "$out" | grep -o 'NOTICE:  OK.*' || true)"
+    [ -n "$ok" ] && echo "$ok" | sed "s|NOTICE:  |  ✓ |"
+    checks=$((checks + $(printf '%s' "$ok" | grep -c 'OK' || true)))
   else
     echo "  ✗ FALHOU: $name"
     echo "$out" | grep -E 'ERROR|CONTEXT' | head -5 | sed 's|^|      |'
@@ -73,6 +79,6 @@ done
 
 if [ "$fail" = "0" ]; then
   echo ""
-  echo "Suíte completa passou."
+  echo "Suíte completa passou: $checks verificações."
 fi
 exit $fail

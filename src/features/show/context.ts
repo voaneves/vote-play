@@ -4,6 +4,8 @@ import type { AudienceSession, ShowPublic, ShowState } from '@/types/domain';
 
 export interface ShowContextValue {
   status: 'loading' | 'error' | 'ready';
+  /** Entrando, mas o banco pediu calma (pico de entrada): o app tenta de novo sozinho. */
+  busy: boolean;
   error: string | null;
   show: ShowPublic | null;
   session: AudienceSession | null;
@@ -15,6 +17,8 @@ export interface ShowContextValue {
   /** Diferença relógio-do-servidor − relógio-local, em ms. Corrige o cronômetro. */
   clockOffsetMs: number;
   retry: () => void;
+  /** Leitura imediata do estado — depois do próprio voto, por exemplo. */
+  refresh: () => void;
 }
 
 export const ShowContext = createContext<ShowContextValue | null>(null);

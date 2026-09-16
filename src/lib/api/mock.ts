@@ -280,16 +280,27 @@ function createPayment(s: MockShow, purpose: Payment['purpose'], amountCents: nu
   return payment;
 }
 
+/** Versão barata do snapshot: muda quando algo visível muda, como no banco. */
+function versionOf(s: MockShow, voted: string | null): string {
+  const r = s.round;
+  return [r.id, r.status, r.totalVotes, r.totalWeight, r.winnerCandidateId, voted, s.queue.length].join('|');
+}
+
 function snapshot(s: MockShow, sessionId: string | null): ShowState {
   const voted = sessionId ? (s.votes.get(sessionId) ?? null) : null;
+  const round = structuredClone(s.round);
+  // ordem estável, a do artista — igual ao banco (ver …180000)
+  round.candidates.sort((a, b) => a.position - b.position);
   return {
+    showStatus: s.show.status,
     round: {
-      ...structuredClone(s.round),
+      ...round,
       myVoteCandidateId: voted,
       freeVotesLeft: voted ? 0 : s.show.freeVotesPerRound,
     },
     queue: structuredClone(s.queue),
     serverTime: iso(),
+    version: versionOf(s, voted),
   };
 }
 
@@ -314,11 +325,15 @@ export const mockApi: VotePlayApi = {
     return result;
   },
 
-  async getShowState(showId, sessionId) {
+  async getShowState(showId, sessionId, knownVersion) {
     await delay(120);
     const s = byId(showId);
     if (!s) throw new ApiError('Show indisponível.', 'show_not_found');
-    return snapshot(s, sessionId);
+    const snap = snapshot(s, sessionId);
+    if (knownVersion && knownVersion === snap.version) {
+      return { unchanged: true, serverTime: snap.serverTime, version: snap.version };
+    }
+    return snap;
   },
 
   async createVoteIntent(input: VoteIntentInput) {
@@ -449,8 +464,10 @@ export const mockApi: VotePlayApi = {
     const s = byId(showId);
     if (!s) {
       observer.onHealth?.('offline');
-      return () => {};
+      return { unsubscribe: () => {}, refresh: () => {} };
     }
+    // Em memória não há transporte a escolher: o mock empurra a cada mudança,
+    // qualquer que seja o `transport` pedido.
     const emit = () => observer.onState(snapshot(s, sessionId));
     s.listeners.add(emit);
     emit();
@@ -458,8 +475,11 @@ export const mockApi: VotePlayApi = {
     // mesmo assim mantém os dois providers com o mesmo contrato — a UI nunca
     // precisa saber qual está por baixo.
     observer.onHealth?.('live');
-    return () => {
-      s.listeners.delete(emit);
+    return {
+      unsubscribe: () => {
+        s.listeners.delete(emit);
+      },
+      refresh: emit,
     };
   },
 };

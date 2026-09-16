@@ -24,7 +24,8 @@ async function provider(): Promise<VotePlayApi> {
 
 export const api: VotePlayApi = {
   join: async (code) => (await provider()).join(code),
-  getShowState: async (showId, sessionId) => (await provider()).getShowState(showId, sessionId),
+  getShowState: async (showId, sessionId, knownVersion) =>
+    (await provider()).getShowState(showId, sessionId, knownVersion),
   createVoteIntent: async (input) => (await provider()).createVoteIntent(input),
   castFreeVote: async (input) => (await provider()).castFreeVote(input),
   createRequestIntent: async (input) => (await provider()).createRequestIntent(input),
@@ -34,18 +35,21 @@ export const api: VotePlayApi = {
   markInstagramFollowClick: async (sessionId) =>
     (await provider()).markInstagramFollowClick(sessionId),
 
-  subscribeShow(showId, sessionId, onState) {
-    let unsubscribe: (() => void) | null = null;
+  subscribeShow(showId, sessionId, observer, options) {
+    let inner: ReturnType<VotePlayApi['subscribeShow']> | null = null;
     let cancelled = false;
 
     void provider().then((p) => {
       if (cancelled) return;
-      unsubscribe = p.subscribeShow(showId, sessionId, onState);
+      inner = p.subscribeShow(showId, sessionId, observer, options);
     });
 
-    return () => {
-      cancelled = true;
-      unsubscribe?.();
+    return {
+      unsubscribe: () => {
+        cancelled = true;
+        inner?.unsubscribe();
+      },
+      refresh: () => inner?.refresh(),
     };
   },
 };

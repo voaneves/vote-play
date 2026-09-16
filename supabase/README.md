@@ -1,4 +1,4 @@
-# Base de dados — Vote Play (Fase 1)
+# Base de dados — Vote Play
 
 Schema, funções, RLS e seed do Supabase. Referência completa em `../plan.md`, seção 5.
 
@@ -8,7 +8,7 @@ Schema, funções, RLS e seed do Supabase. Referência completa em `../plan.md`,
 supabase/
 ├─ config.toml                 configuração do CLI (supabase start / db diff)
 ├─ seed.sql                    artista, repertório e TRÊS shows no ar — SÓ desenvolvimento
-├─ migrations/                 19 arquivos, aplicados em ordem de nome
+├─ migrations/                 24 arquivos, aplicados em ordem de nome
 │  ├─ …120000_enums.sql        tipos do domínio
 │  ├─ …120100_tables.sql       13 tabelas
 │  ├─ …120200_functions.sql    regras de rodada, voto e pagamento
@@ -20,7 +20,10 @@ supabase/
 │  ├─ …120900_free_vote.sql    cast_free_vote e o índice de um voto por rodada
 │  ├─ …121000_instagram_gate.sql      modos pix/instagram/free e o portão do @
 │  ├─ …1517*                   lote de correções de auditoria (ver plan.md, 12.1)
-│  └─ …                        as demais, em ordem cronológica
+│  ├─ …0916120000_reaplicar_correcoes      correções de 15/09 no schema, não só no histórico
+│  ├─ …0916140000_rate_limit               1ª versão do rate limit (substituída pela seguinte)
+│  ├─ …0916170000_rate_limit_pico          teto que não barra a plateia no pico (plan.md, 8.4)
+│  └─ …0916180000_rls_encerramento_snapshot  anon sem `shows`, fim do show, snapshot com versão
 └─ tests/
    ├─ 00_supabase_stub.sql     emula auth.users/auth.uid() fora do Supabase
    ├─ 01…11                    rodada, apuração, RLS, painel, voto grátis, Instagram
@@ -28,7 +31,9 @@ supabase/
    ├─ 13_join_code.sql         código exclusivo desde o rascunho; reciclado não confunde
    ├─ 14_free_vote_limit.sql   a configuração não promete mais que o índice cumpre
    ├─ 15_expire_payments.sql   contagem do vencimento e queda de voto e pedido junto
-   └─ run.sh                   roda tudo num Postgres descartável
+   ├─ 16_rate_limit.sql        300 aparelhos no mesmo IP entram; recusa não conta
+   ├─ 17_revisao_16_09.sql     isolamento no painel, fila sem valor, fim do show, versão
+   └─ run.sh                   roda tudo num Postgres descartável e imprime o total
 ```
 
 Os três shows do seed são `PAGAR1` (modo `pix`), `GRAM99` (modo `instagram`) e `FREE01`
@@ -158,7 +163,7 @@ não mantém sessão nem suporta comandos transacionais de DDL.
 ## Rodar os testes localmente
 
 ```bash
-./supabase/tests/run.sh
+bash supabase/tests/run.sh
 ```
 
 Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa de
@@ -166,10 +171,13 @@ Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa d
 
 ## Depois de aplicar
 
-1. **Realtime**: confirme em *Database → Replication* que `round_candidates`,
-   `rounds` e `direct_requests` estão na publicação `supabase_realtime`.
-2. **pg_cron**: ative em *Database → Extensions* se ainda não estiver. A migration
-   agenda `tick_rounds()` a cada 10s e `expire_stale_payments()` a cada minuto.
+1. **Realtime**: em *Database → Replication*, a publicação `supabase_realtime` deve ter
+   `rounds` e `direct_requests` — e **não** `round_candidates`, que saiu na `20260916180000`. Só o
+   telão assina; a plateia consulta por polling (plano Free, `plan.md` seção 8).
+2. **pg_cron**: ative em *Database → Extensions* se ainda não estiver. As migrations
+   agendam `tick_rounds()` a cada 10s, `expire_stale_payments()` a cada minuto e
+   `purge_rate_limits()` a cada 10 min. Se a extensão foi ativada depois do `db push`,
+   rode de novo `20260914120500_realtime_and_cron.sql` e o bloco final de `20260916140000_rate_limit.sql`.
    Sem pg_cron, o painel chama `tick_rounds()` a cada 5s enquanto houver rodada ativa
    (`src/pages/painel/ShowLive.tsx`) — por isso ela também é liberada para
    `authenticated`, escopada aos shows do próprio artista.
@@ -178,8 +186,14 @@ Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa d
    pg_cron — o que só passa a importar na Fase 7, quando houver dinheiro de verdade.
 3. **Auth**: em *Authentication → URL Configuration*, adicione a URL do GitHub
    Pages às redirect URLs.
-4. **Chaves**: copie a URL e a `anon` para o `.env`. A `service_role`
+4. **Chaves**: copie a URL e a chave *publishable* para o `.env`. A secreta
    **nunca** entra no `.env` do front — ela vive só nas Edge Functions.
+5. **IP de verdade**: no primeiro teste, entre no mesmo show com um celular no 4G e outro no
+   wi-fi e rode `select count(distinct ip_hash) from audience_sessions where show_id = '…'`.
+   Tem de dar 2. Se der 1, o teto de entrada por IP está agrupando todo mundo: suba
+   `join_rate_limit` para 10000 e veja `plan.md`, 8.4.
+6. **Não deixe o projeto pausar**: o Free pausa depois de 7 dias sem uso. Abra o painel na
+   semana de cada show e confira na véspera.
 
 ## Invariantes que os testes protegem
 
@@ -187,7 +201,9 @@ Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa d
 - Webhook repetido não dobra voto (`payment_events` tem unique no id do evento).
 - Nenhum voto entra em rodada apurada — trava no trigger, não só na aplicação.
 - O QR Pix nunca expira depois da apuração da rodada.
-- A chave `anon` lê o placar e mais nada; não escreve em lugar nenhum.
+- A chave `anon` lê o placar e mais nada; não escreve em lugar nenhum, não lista shows e
+  não vê valor nem sessão de pedido.
+- Um artista não enxerga shows nem pedidos de outro artista, nem pela tabela.
 - Um artista não enxerga nem mexe no show de outro, nem via função do painel.
 - `tick_rounds()` na mão de um artista move a rodada **dele** e não aborta ao encontrar a
   de outro — sem isso, a rede de segurança do cronômetro deixaria de existir para todos a
@@ -197,3 +213,7 @@ Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa d
 - `free_votes_per_round` não aceita um valor que o índice único não consiga cumprir.
 - `expire_stale_payments()` devolve quantos pagamentos expiraram — e derruba o voto
   pendente e o pedido não pago na mesma passada.
+- 300 aparelhos atrás do mesmo IP entram no primeiro minuto; tentativa recusada não conta.
+- Encerrar o show apura a rodada aberta, cancelar cancela; encerrado não volta ao ar.
+- `get_show_state` com a versão atual responde só `unchanged`, e qualquer mudança visível —
+  inclusive o próprio voto — troca a versão.

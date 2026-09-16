@@ -12,7 +12,10 @@ maior para furar a fila e pedir uma música direto.
 ## Stack
 
 React 19 · Vite 8 · TypeScript 5.9 (strict) · Tailwind CSS 4 · shadcn/ui · React Router 7
-Backend previsto: Supabase (Postgres + Realtime + Edge Functions) · Pix via Mercado Pago
+Backend: Supabase no plano Free (Postgres + RPCs + Realtime só no telão) · Pix via Mercado Pago na Fase 7
+
+O plano Free é requisito de arquitetura, não detalhe: a plateia acompanha o show por polling
+com versão, e só o telão usa websocket. Números e motivos em `plan.md`, seção 8.
 
 ## Rodando localmente
 
@@ -48,7 +51,7 @@ desse alfabeto em vez de deixá-lo quebrar na mão de quem for digitar.
 | `/s/:code` | Show: votação e pedido de música |
 | `/s/:code/pix/:paymentId` | Cobrança Pix (copia-e-cola + QR) |
 | `/telao/:code` | Modo telão: QR grande e ranking ao vivo |
-| `/painel` | Painel do artista (Fase 1) |
+| `/painel` | Painel do artista: shows, rodada ao vivo, repertório, QR, métricas |
 
 ## Scripts
 
@@ -59,7 +62,7 @@ desse alfabeto em vez de deixá-lo quebrar na mão de quem for digitar.
 | `npm run preview` | Serve o build local |
 | `npm run typecheck` | TypeScript nos dois projetos (a raiz sozinha não checa nada) |
 | `npm run lint` | ESLint |
-| `./supabase/tests/run.sh` | Suíte do banco num Postgres descartável |
+| `bash supabase/tests/run.sh` | Suíte do banco num Postgres descartável |
 
 ## Deploy
 
@@ -78,9 +81,8 @@ npx shadcn@latest add table select dialog
 
 ## Arquitetura em uma frase
 
-Toda comunicação com o backend passa pela interface `VotePlayApi` (`src/lib/api/types.ts`).
-Hoje existe a implementação `mock`; a implementação `supabase` entra sem que nenhum
-componente de UI precise mudar.
+Toda comunicação com o backend passa pela interface `VotePlayApi` (`src/lib/api/types.ts`),
+com duas implementações — `mock` (em memória) e `supabase` — que a UI não distingue.
 
 ---
 

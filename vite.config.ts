@@ -87,7 +87,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     /**
-     * Subdiretório do GitHub Pages. Ao migrar para domínio próprio (Fase 7 do
+     * Subdiretório do GitHub Pages. Ao migrar para domínio próprio (Fase 9 do
      * plan.md), trocar por '/' — o basename do router lê este mesmo valor via
      * import.meta.env.BASE_URL.
      */

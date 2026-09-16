@@ -24,14 +24,11 @@ begin
 
   set local role anon;
 
-  -- PERMITIDO: shows no ar, e somente eles
-  select count(*) into v_n from shows where status not in ('live','paused');
-  assert v_n = 0, format('anon enxergou %s show(s) fora do ar', v_n);
-  select count(*) into v_n from shows where join_code = 'DRAFT1';
-  assert v_n = 0, 'anon não pode enxergar um show em rascunho';
-  select count(*) into v_n from shows where join_code = 'PAGAR1';
-  assert v_n = 1, 'anon precisa enxergar o show que está no ar';
+  -- NEGADO: a tabela de shows. A plateia entra por join_show/get_show_state;
+  -- ler a tabela listava o código de todo show no ar e colunas internas.
+  perform _assert_anon_cannot_read('shows');
 
+  -- PERMITIDO: o placar de show no ar, e só dele
   select count(*) into v_n from round_candidates;
   assert v_n > 0, 'anon precisa ler o placar';
 

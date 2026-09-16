@@ -57,8 +57,9 @@ export function SuspiciousSessionsCard({ showId }: { showId: string }) {
       </ul>
 
       <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-        Isto é pista, não acusação: o wi-fi de uma casa dá o mesmo endereço para
-        todo mundo, então a mesa inteira aparece agrupada aqui. O app não bloqueia
+        Isto é pista, não acusação: o wi-fi da casa dá o mesmo endereço para todo
+        mundo, e operadoras de celular também agrupam muita gente num endereço só —
+        num show cheio, um grupo grande aqui é o normal. O app não bloqueia
         ninguém por causa desta lista. O endereço em si não é guardado — só um
         código embaralhado, diferente a cada show.
       </p>

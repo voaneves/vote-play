@@ -151,8 +151,20 @@ export interface AudienceSession {
  * seria desperdício no wi-fi da plateia.
  */
 export interface ShowState {
+  /**
+   * Status do show neste instante. Chega no snapshot, e não só no `join`,
+   * porque é o que muda durante a noite: pausa, e sobretudo o fim — sem ele a
+   * plateia de um show encerrado via "sem conexão" em vez de "o show terminou".
+   */
+  showStatus: ShowStatus;
   round: Round | null;
   queue: DirectRequest[];
   /** ISO do relógio do servidor, usado para corrigir drift do cronômetro. */
   serverTime: string;
+  /**
+   * Hash do snapshot. O cliente devolve na próxima consulta e, se nada mudou,
+   * o servidor responde só `{ unchanged: true }` — o que mantém o polling da
+   * plateia dentro do egress do plano Free.
+   */
+  version: string;
 }

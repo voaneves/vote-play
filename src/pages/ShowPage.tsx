@@ -32,7 +32,7 @@ export default function ShowPage() {
 }
 
 function ShowScreen() {
-  const { status, error, show, session, state, health, lastSyncedAt, clockOffsetMs, retry } =
+  const { status, busy, error, show, session, state, health, lastSyncedAt, clockOffsetMs, retry, refresh } =
     useShow();
   const [tab, setTab] = useState<Tab>('voting');
   // o @ declarado nesta visita; o join já traz o de visitas anteriores
@@ -41,7 +41,14 @@ function ShowScreen() {
   if (status === 'loading') {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center px-6">
-        <p className="animate-pulse text-muted-foreground">Entrando no show…</p>
+        <div className="text-center" role="status" aria-live="polite">
+          <p className="animate-pulse text-muted-foreground">Entrando no show…</p>
+          {busy && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Muita gente chegando ao mesmo tempo. Já, já você entra — não precisa fazer nada.
+            </p>
+          )}
+        </div>
       </main>
     );
   }
@@ -95,7 +102,10 @@ function ShowScreen() {
               profileHandle={show.instagramHandle!}
               sessionId={session.id}
               alreadyClicked={session.followClickedAt !== null}
-              onDone={setHandle}
+              onDone={(declared) => {
+                setHandle(declared);
+                refresh();
+              }}
             />
           ) : (
             <VotingTab clockOffsetMs={clockOffsetMs} />
@@ -162,7 +172,7 @@ function TabButton({
 
 function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
   const navigate = useNavigate();
-  const { show, session, state } = useShow();
+  const { show, session, state, refresh } = useShow();
   const [picking, setPicking] = useState<RoundCandidate | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -173,6 +183,34 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
   );
 
   if (!show || !session) return null;
+
+  if (state?.showStatus === 'ended' || state?.showStatus === 'cancelled') {
+    const lastWinner = round?.candidates.find((c) => c.id === round?.winnerCandidateId);
+    return (
+      <div className="vp-surface mt-10 p-8 text-center">
+        <p className="text-sm uppercase tracking-widest text-muted-foreground">
+          {state.showStatus === 'ended' ? 'O show terminou' : 'Show cancelado'}
+        </p>
+        <p className="mt-3 text-2xl font-bold">
+          {state.showStatus === 'ended' ? 'Valeu por votar!' : 'A votação foi encerrada.'}
+        </p>
+        {lastWinner && (
+          <p className="mt-2 text-muted-foreground">
+            Última escolhida: {lastWinner.title} · {lastWinner.artistName}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (state?.showStatus === 'paused') {
+    return (
+      <div className="vp-surface mt-10 p-8 text-center">
+        <p className="text-sm uppercase tracking-widest text-muted-foreground">Intervalo</p>
+        <p className="mt-3 text-2xl font-bold">A votação volta já já</p>
+      </div>
+    );
+  }
 
   if (!round || round.status !== 'open') {
     const winner = round?.candidates.find((c) => c.id === round?.winnerCandidateId);
@@ -195,7 +233,14 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
   const isPaid = show.voteMode === 'pix';
   const alreadyVoted = round.myVoteCandidateId !== null;
   const canVoteFree = !isPaid && round.freeVotesLeft > 0 && !alreadyVoted;
-  const ranked = [...round.candidates].sort((a, b) => b.weight - a.weight);
+  // A lista fica na ORDEM DO ARTISTA e não pula conforme os votos chegam: no
+  // voto grátis um toque já é o voto, e um card trocando de lugar debaixo do
+  // dedo vira voto na música errada, sem desfazer. O ranking aparece no número.
+  const rankOf = new Map(
+    [...round.candidates]
+      .sort((a, b) => b.weight - a.weight || a.position - b.position)
+      .map((c, i) => [c.id, i + 1]),
+  );
 
   const handlePaidConfirm = async (amountCents: number) => {
     if (!picking) return;
@@ -229,6 +274,8 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
       });
       navigator.vibrate?.(12);
       toast.success(`Voto em "${candidate.title}" registrado.`);
+      // sem esperar o próximo ciclo: a marcação "seu voto" aparece na hora
+      refresh();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'Não foi possível votar.');
     } finally {
@@ -262,13 +309,13 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
       </p>
 
       <ul className="space-y-3">
-        {ranked.map((candidate, index) => (
+        {round.candidates.map((candidate) => (
           <li key={candidate.id}>
             <CandidateCard
               candidate={candidate}
-              rank={index + 1}
+              rank={rankOf.get(candidate.id) ?? candidate.position}
               totalWeight={round.totalWeight}
-              leading={index === 0}
+              leading={rankOf.get(candidate.id) === 1 && candidate.weight > 0}
               disabled={hasEnded || (!isPaid && !canVoteFree && !alreadyVoted)}
               chosen={round.myVoteCandidateId === candidate.id}
               actionLabel={isPaid ? 'Votar' : 'Escolher'}

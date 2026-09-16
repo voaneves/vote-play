@@ -36,6 +36,8 @@ export default function ShowLive() {
   const { id = '' } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<string[]>([]);
+  // Encerrar é definitivo (e apura a rodada aberta): pede um segundo toque.
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   const show = useQuery({ queryKey: ['show', id], queryFn: () => getShow(id) });
   const songs = useQuery({ queryKey: ['songs'], queryFn: listSongs });
@@ -168,7 +170,7 @@ export default function ShowLive() {
         <span className="mr-auto text-sm text-muted-foreground">
           Status: <strong className="text-foreground">{show.data.status}</strong>
         </span>
-        {show.data.status !== 'live' && show.data.status !== 'ended' && (
+        {!['live', 'ended', 'cancelled'].includes(show.data.status) && (
           <Button onClick={() => status.mutate('live')}>Colocar no ar</Button>
         )}
         {show.data.status === 'live' && (
@@ -176,10 +178,31 @@ export default function ShowLive() {
             Pausar
           </Button>
         )}
-        {show.data.status !== 'ended' && (
-          <Button variant="ghost" onClick={() => status.mutate('ended')}>
-            Encerrar show
-          </Button>
+        {!['ended', 'cancelled'].includes(show.data.status) &&
+          (confirmEnd ? (
+            <>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setConfirmEnd(false);
+                  status.mutate('ended');
+                }}
+              >
+                Confirmar: encerrar
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmEnd(false)}>
+                Voltar
+              </Button>
+            </>
+          ) : (
+            <Button variant="ghost" onClick={() => setConfirmEnd(true)}>
+              Encerrar show
+            </Button>
+          ))}
+        {confirmEnd && (
+          <p className="w-full text-xs text-muted-foreground">
+            Não dá para voltar ao ar depois. Se houver rodada aberta, ela é apurada agora.
+          </p>
         )}
       </section>
 
