@@ -88,22 +88,62 @@ correção deles, o papel `cli_login_postgres` ficou sem `ADMIN OPTION`, e o Pos
 passou a exigir isso. Não há correção na CLI. O contorno é dar a senha do banco para a
 CLI, o que faz ela conectar direto e pular a criação do papel temporário.
 
-**PowerShell:**
+> **Refazer o `supabase link` NÃO resolve.** O link guarda a senha no Gerenciador de
+> Credenciais do Windows e isso funciona — mas a CLI tenta criar o papel temporário
+> *antes* de chegar a usá-la, então o erro acontece igual. Verificado em 16/09.
+
+A senha está em *Project Settings → Database → Database password* (se não souber, dá
+para gerar outra ali).
+
+### Deixando a senha guardada, só neste projeto
+
+Digitar `$env:SUPABASE_DB_PASSWORD` a cada terminal cansa, e gravá-la no ambiente do
+usuário (`SetEnvironmentVariable ... 'User'`) a deixa em texto puro no registro,
+herdada por todo processo que você abrir. Como esta senha só serve a este repositório,
+ela mora no `.env` daqui:
+
+```ini
+# .env  (ignorado pelo git)
+SUPABASE_DB_PASSWORD=a-senha-do-banco
+```
+
+**Sem o prefixo `VITE_`, ela não chega ao navegador.** O `vite.config.ts` chama
+`loadEnv(mode, __dirname, 'VITE_')`, que filtra por prefixo — verificado com canário:
+uma senha falsa no `.env`, build completo, busca no `dist/` inteiro, zero ocorrências,
+enquanto a chave publishable aparece como esperado.
+
+A CLI lê o `.env` para substituir `env()` no `config.toml`, mas isso **não** garante
+que ela exporte a variável para o próprio processo. Então carregue explicitamente.
+No seu `$PROFILE` do PowerShell (`notepad $PROFILE`):
 
 ```powershell
-$env:SUPABASE_DB_PASSWORD = "sua-senha-do-banco"
-supabase db reset --linked
+function Import-DotEnv {
+  param([string]$Arquivo = ".\.env")
+  if (-not (Test-Path $Arquivo)) { Write-Warning "sem .env aqui"; return }
+  Get-Content $Arquivo | ForEach-Object {
+    if ($_ -match '^\s*([^#=\s][^=]*?)\s*=\s*(.*)$') {
+      Set-Item -Path "env:$($Matches[1])" -Value $Matches[2].Trim().Trim('"').Trim("'")
+    }
+  }
+}
+
+# atalho: vai para o projeto e já carrega o .env
+function vp { Set-Location D:\GitHub\vote-play; Import-DotEnv }
 ```
 
-**bash / zsh:**
+E o uso passa a ser:
+
+```powershell
+vp
+supabase db push --include-seed
+```
+
+**bash / zsh**, para o mesmo efeito:
 
 ```bash
-export SUPABASE_DB_PASSWORD='sua-senha-do-banco'
-supabase db reset --linked
+set -a; source .env; set +a
+supabase db push --include-seed
 ```
-
-A variável vive só naquele terminal. A senha está em *Project Settings → Database →
-Database password* (se não souber, dá para gerar outra ali).
 
 Alternativa com a string de conexão explícita:
 
