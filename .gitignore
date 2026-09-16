@@ -56,7 +56,12 @@ vite.config.ts.timestamp-*
 # Python dos scripts da marca
 __pycache__/
 *.pyc
+# derivado de brand/colors.py — um comando reconstrói, e commitado ele diverge
+brand/palette.json
 
-# Saídas de ferramentas externas (capturas, exportações, arquivos temporários)
-outputs/
+# Saídas de ferramentas externas (capturas, exportações, arquivos temporários).
+# O glob cobre tanto "outputs/" quanto pastas que a ferramenta nomeia com um
+# prefixo próprio — um app de desktop já despejou um arquivo dentro do repo
+# assim, e uma regra que não casa com o nome real não ignora nada.
+*outputs/
 *.tmp.pdf
