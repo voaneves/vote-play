@@ -2,13 +2,17 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Copy, ExternalLink, MonitorPlay, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { showJoinUrl } from '@/config/env';
+import { SHOW_STATUS_LABEL } from '@/lib/painel/labels';
 import { useCountdown } from '@/hooks/useCountdown';
 import { formatClock } from '@/lib/format';
 import { downloadCsv, slugify, toCsv } from '@/lib/csv';
 import { ShowSummaryCard } from '@/components/painel/ShowSummaryCard';
 import { InstagramFunnelCard } from '@/components/painel/InstagramFunnelCard';
 import { SuspiciousSessionsCard } from '@/components/painel/SuspiciousSessionsCard';
+import { QueueCard } from '@/components/painel/QueueCard';
 import { cn } from '@/lib/utils';
 import {
   addSongsToShow,
@@ -16,6 +20,7 @@ import {
   closeRoundVoting,
   currentRound,
   getShow,
+  listRoundCandidates,
   listShowSongs,
   listSongs,
   openRound,
@@ -100,6 +105,14 @@ export default function ShowLive() {
 
   const active = round.data !== null && ['open', 'closing'].includes(round.data?.status ?? '');
 
+  // placar da rodada no próprio painel (auditoria 9.4, U2)
+  const candidates = useQuery({
+    queryKey: ['round-candidates', round.data?.id],
+    queryFn: () => listRoundCandidates(round.data!.id),
+    enabled: active && !!round.data?.id,
+    refetchInterval: active ? 3000 : false,
+  });
+
   /**
    * Rede de segurança do cronômetro.
    *
@@ -148,27 +161,64 @@ export default function ShowLive() {
     <>
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
-          <Link to="/painel" className="vp-focus text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/painel"
+            className="vp-focus -ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
+          >
             ← Shows
           </Link>
-          <h1 className="mt-1 truncate text-2xl font-bold">{show.data.title}</h1>
+          <h1 className="break-words text-2xl font-bold">{show.data.title}</h1>
           <p className="text-muted-foreground">{show.data.venue ?? 'sem local'}</p>
         </div>
-        <Link
-          to={`/painel/shows/${id}/qr`}
-          className="vp-surface vp-focus px-4 py-3 text-center transition hover:border-primary/50"
-        >
+        <span className="vp-surface px-4 py-3 text-center">
           <span className="tabular block font-mono text-lg font-bold tracking-widest">
             {show.data.join_code}
           </span>
-          <span className="block text-xs text-muted-foreground">ver QR Code</span>
-        </Link>
+          <span className="block text-xs text-muted-foreground">código do show</span>
+        </span>
       </div>
+
+      {/*
+        As telas que o artista usa numa noite, a um toque: nada de URL decorada
+        (plan.md, 9.1). Telão e visão da plateia abrem em outra aba para o
+        painel continuar aberto.
+      */}
+      <nav aria-label="Telas deste show" className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <Button asChild variant="secondary" className="min-h-11">
+          <Link to={`/telao/${show.data.join_code}`} target="_blank" rel="noopener">
+            <MonitorPlay className="h-4 w-4" aria-hidden /> Abrir telão
+            <span className="sr-only"> (abre em nova aba)</span>
+          </Link>
+        </Button>
+        <Button asChild variant="secondary" className="min-h-11">
+          <Link to={`/s/${show.data.join_code}`} target="_blank" rel="noopener">
+            <ExternalLink className="h-4 w-4" aria-hidden /> Ver como plateia
+            <span className="sr-only"> (abre em nova aba)</span>
+          </Link>
+        </Button>
+        <Button asChild variant="secondary" className="min-h-11">
+          <Link to={`/painel/shows/${id}/qr`}>
+            <QrCode className="h-4 w-4" aria-hidden /> QR para imprimir
+          </Link>
+        </Button>
+        <Button
+          variant="secondary"
+          className="min-h-11"
+          onClick={() => {
+            void navigator.clipboard.writeText(showJoinUrl(show.data!.join_code)).then(
+              () => toast.success('Link do show copiado.'),
+              () => toast.error('Não foi possível copiar.'),
+            );
+          }}
+        >
+          <Copy className="h-4 w-4" aria-hidden /> Copiar link
+        </Button>
+      </nav>
 
       {/* controle do show */}
       <section className="vp-surface mt-5 flex flex-wrap items-center gap-2 p-4">
         <span className="mr-auto text-sm text-muted-foreground">
-          Status: <strong className="text-foreground">{show.data.status}</strong>
+          Status: <strong className="text-foreground">{SHOW_STATUS_LABEL[show.data.status]}</strong>
         </span>
         {!['live', 'ended', 'cancelled'].includes(show.data.status) && (
           <Button onClick={() => status.mutate('live')}>Colocar no ar</Button>
@@ -221,8 +271,37 @@ export default function ShowLive() {
               </p>
             )}
             <p className="mt-2 text-sm text-muted-foreground">
-              {round.data!.total_votes} votos · {round.data!.total_weight} pontos
+              {round.data!.total_votes} {round.data!.total_votes === 1 ? 'voto' : 'votos'}
+              {round.data!.total_weight !== round.data!.total_votes &&
+                ` · ${round.data!.total_weight} pontos`}
             </p>
+
+            {candidates.data && candidates.data.length > 0 && (
+              <ol className="mt-4 space-y-2" aria-label="Placar da rodada">
+                {candidates.data.map((c, i) => {
+                  const max = Math.max(1, candidates.data![0]?.weight ?? 1);
+                  return (
+                    <li key={c.id} className="relative overflow-hidden rounded-xl border border-border p-3">
+                      <div
+                        aria-hidden
+                        className={cn('absolute inset-y-0 left-0', i === 0 && c.weight > 0 ? 'bg-primary/15' : 'bg-muted/30')}
+                        style={{ width: `${Math.round((c.weight / max) * 100)}%` }}
+                      />
+                      <div className="relative flex items-center gap-3">
+                        <span className="tabular w-5 shrink-0 text-center font-bold text-muted-foreground">
+                          {i + 1}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words font-medium">{c.title}</span>
+                          <span className="block break-words text-sm text-muted-foreground">{c.artist_name}</span>
+                        </span>
+                        <span className="tabular shrink-0 text-lg font-bold">{c.weight}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
             <div className="mt-4 flex flex-wrap gap-2">
               {round.data!.status === 'open' && (
                 <Button variant="secondary" onClick={() => closeVoting.mutate(round.data!.id)}>
@@ -294,6 +373,8 @@ export default function ShowLive() {
         )}
       </section>
 
+      <QueueCard show={show.data} onChanged={refresh} />
+
       <ShowSummaryCard showId={id} live={show.data.status === 'live'} />
       <SuspiciousSessionsCard showId={id} />
 
@@ -337,6 +418,7 @@ export default function ShowLive() {
                 </a>
                 <span className="tabular shrink-0 text-muted-foreground">
                   {p.votos} {p.votos === 1 ? 'voto' : 'votos'}
+                  {p.apoios > 0 && ` · ${p.apoios} ${p.apoios === 1 ? 'apoio' : 'apoios'}`}
                 </span>
               </li>
             ))}
@@ -370,6 +452,7 @@ export default function ShowLive() {
                       { header: 'instagram', value: (p) => `@${p.instagram_handle}` },
                       { header: 'apelido', value: (p) => p.nickname ?? '' },
                       { header: 'votos', value: (p) => p.votos },
+                      { header: 'apoios na fila', value: (p) => p.apoios },
                       {
                         header: 'entrou em',
                         value: (p) => new Date(p.entrou_em).toLocaleString('pt-BR'),
@@ -394,7 +477,7 @@ export default function ShowLive() {
           Marque o que pode entrar em votação hoje.
         </p>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-          {songs.data?.map((song) => (
+          {songs.data?.filter((song) => song.is_active || inShow.has(song.id)).map((song) => (
             <li key={song.id}>
               <button
                 type="button"

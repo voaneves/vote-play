@@ -1,3 +1,4 @@
+// Componente do shadcn/ui (MIT) — https://ui.shadcn.com — vendorizado sem mudanças de estrutura.
 import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 

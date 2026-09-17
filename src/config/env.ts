@@ -82,8 +82,18 @@ if (raw.DEV && explicitProvider === 'mock' && isConfigured) {
   );
 }
 
+/**
+ * Pagamento de verdade só existe na Fase 7 (Pix) e na 8 (pedido direto). Até
+ * lá, com o Supabase, qualquer tela que leve a um pagamento termina em erro —
+ * então essas telas nem aparecem. No mock o fluxo inteiro é simulado e fica
+ * visível para demonstração.
+ */
+const paymentsEnabled = apiProvider === 'mock';
+
 export const env = {
   apiProvider,
+  /** Pix e pedido direto disponíveis nesta build. Ver comentário acima. */
+  paymentsEnabled,
   supabaseUrl,
   supabasePublishableKey: publishableKey,
   /** true quando há URL e chave — o painel do artista depende disso. */

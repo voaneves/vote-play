@@ -2,6 +2,7 @@ import type {
   AudienceSession,
   DirectRequest,
   Payment,
+  RepertoireState,
   ShowPublic,
   ShowState,
   VoteMode,
@@ -20,6 +21,9 @@ export class ApiError extends Error {
       | 'instagram_required'
       | 'invalid_handle'
       | 'rate_limited'
+      | 'no_supports_left'
+      | 'song_unavailable'
+      | 'queue_closed'
       | 'unknown',
   ) {
     super(message);
@@ -64,6 +68,20 @@ export interface ShowStateUnchanged {
   unchanged: true;
   serverTime: string;
   version: string;
+}
+
+export interface RepertoireObserver {
+  onState: (state: RepertoireState) => void;
+  onHealth?: (health: ConnectionHealth) => void;
+}
+
+export interface SongSupportInput {
+  showId: string;
+  sessionId: string;
+  /** id em `show_songs` */
+  showSongId: string;
+  /** true apoia, false retira */
+  support: boolean;
 }
 
 export interface ShowObserver {
@@ -135,6 +153,22 @@ export interface VotePlayApi {
   createRequestIntent(
     input: RequestIntentInput,
   ): Promise<{ payment: Payment; request: DirectRequest }>;
+
+  /**
+   * Apoia ou retira o apoio a uma música da fila. Orçamento e regras no banco;
+   * a resposta traz quantos apoios sobraram.
+   */
+  setSongSupport(input: SongSupportInput): Promise<{ supported: boolean; supportsLeft: number }>;
+
+  /**
+   * Acompanha a fila do repertório. Só deve estar ativa enquanto alguém olha
+   * para ela (a aba aberta, o telão sem rodada): cada assinatura é consulta.
+   */
+  subscribeRepertoire(
+    showId: string,
+    sessionId: string,
+    observer: RepertoireObserver,
+  ): ShowSubscription;
 
   /** Polling de fallback enquanto o QR está na tela (o webhook é o caminho rápido). */
   getPaymentStatus(paymentId: string): Promise<Payment>;

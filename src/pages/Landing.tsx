@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { env } from '@/config/env';
 import { MOCK_DEMO_CODE, MOCK_FREE_CODE, MOCK_INSTAGRAM_CODE } from '@/lib/api';
 import { isValidJoinCode, normalizeJoinCode, JOIN_CODE_LENGTH } from '@/lib/joinCode';
-import { Ticket } from 'lucide-react';
+import { VotePlayLogo } from '@/components/brand/VotePlayLogo';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ export default function Landing() {
     <main className="flex min-h-[100dvh] flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center">
-          <Ticket className="mx-auto h-10 w-10 text-primary" strokeWidth={1.75} aria-hidden />
+          <VotePlayLogo className="mx-auto h-10 w-10" />
           <h1 className="mt-6 text-3xl font-bold tracking-tight">Vote Play</h1>
           <p className="mt-2 text-muted-foreground">
             A próxima música do show é por sua conta.
@@ -67,6 +67,20 @@ export default function Landing() {
         <p className="mt-8 text-center text-sm text-muted-foreground">
           Ou aponte a câmera para o QR Code do evento.
         </p>
+
+        {/*
+          A entrada é da plateia, mas não pode ser a única porta: o artista
+          chega aqui pelo link do próprio QR e precisa de um botão para o painel,
+          não de uma URL decorada (plan.md, 9.1).
+        */}
+        <div className="mt-10 border-t border-border pt-6 text-center">
+          <Link
+            to="/painel"
+            className="vp-focus inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+          >
+            Sou artista — entrar no painel
+          </Link>
+        </div>
 
         {env.apiProvider === 'mock' && (
           <div className="mt-6 flex flex-wrap justify-center gap-2">

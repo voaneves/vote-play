@@ -86,9 +86,14 @@ export function CandidateCard({
       </div>
 
       <div className="relative mt-3 flex items-center justify-between text-xs text-muted-foreground">
+        {/* quando peso = votos (voto grátis), o número grande já disse tudo (U10) */}
         <span>
-          {candidate.votesCount} {candidate.votesCount === 1 ? 'voto' : 'votos'}
-          {candidate.amountCents > 0 && ` · ${formatCents(candidate.amountCents)}`}
+          {(candidate.weight !== candidate.votesCount || candidate.amountCents > 0) && (
+            <>
+              {candidate.votesCount} {candidate.votesCount === 1 ? 'voto' : 'votos'}
+              {candidate.amountCents > 0 && ` · ${formatCents(candidate.amountCents)}`}
+            </>
+          )}
         </span>
         {chosen ? (
           <span className="font-semibold text-primary">✓ Seu voto</span>

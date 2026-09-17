@@ -8,7 +8,7 @@ Schema, funções, RLS e seed do Supabase. Referência completa em `../plan.md`,
 supabase/
 ├─ config.toml                 configuração do CLI (supabase start / db diff)
 ├─ seed.sql                    artista, repertório e TRÊS shows no ar — SÓ desenvolvimento
-├─ migrations/                 24 arquivos, aplicados em ordem de nome
+├─ migrations/                 25 arquivos, aplicados em ordem de nome
 │  ├─ …120000_enums.sql        tipos do domínio
 │  ├─ …120100_tables.sql       13 tabelas
 │  ├─ …120200_functions.sql    regras de rodada, voto e pagamento
@@ -23,7 +23,8 @@ supabase/
 │  ├─ …0916120000_reaplicar_correcoes      correções de 15/09 no schema, não só no histórico
 │  ├─ …0916140000_rate_limit               1ª versão do rate limit (substituída pela seguinte)
 │  ├─ …0916170000_rate_limit_pico          teto que não barra a plateia no pico (plan.md, 8.4)
-│  └─ …0916180000_rls_encerramento_snapshot  anon sem `shows`, fim do show, snapshot com versão
+│  ├─ …0916180000_rls_encerramento_snapshot  anon sem `shows`, fim do show, snapshot com versão
+│  └─ …0916200000_fila_repertorio          fila do repertório: apoios, ranking, tocada (plan.md, 5.1)
 └─ tests/
    ├─ 00_supabase_stub.sql     emula auth.users/auth.uid() fora do Supabase
    ├─ 01…11                    rodada, apuração, RLS, painel, voto grátis, Instagram
@@ -33,6 +34,7 @@ supabase/
    ├─ 15_expire_payments.sql   contagem do vencimento e queda de voto e pedido junto
    ├─ 16_rate_limit.sql        300 aparelhos no mesmo IP entram; recusa não conta
    ├─ 17_revisao_16_09.sql     isolamento no painel, fila sem valor, fim do show, versão
+   ├─ 18_fila_repertorio.sql   apoio, orçamento, estado compacto, tocada, recusas, privilégios
    └─ run.sh                   roda tudo num Postgres descartável e imprime o total
 ```
 
@@ -217,3 +219,6 @@ Sobe um Postgres temporário, aplica tudo do zero e exercita a suíte. Precisa d
 - Encerrar o show apura a rodada aberta, cancelar cancela; encerrado não volta ao ar.
 - `get_show_state` com a versão atual responde só `unchanged`, e qualquer mudança visível —
   inclusive o próprio voto — troca a versão.
+- Fila: um apoio por pessoa por música, orçamento por pessoa que volta quando a música toca,
+  música em rodada aberta não recebe apoio, só o dono marca tocada, e o artista não reescreve
+  peso nem status pela tabela.

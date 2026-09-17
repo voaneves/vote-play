@@ -1,13 +1,20 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase/client';
 import { getDeviceHash } from '@/lib/deviceHash';
-import type { ShowState } from '@/types/domain';
+import type {
+  RepertoireSong,
+  RepertoireSongStatus,
+  RepertoireState,
+  ShowState,
+  ShowStatus,
+} from '@/types/domain';
 import {
   ApiError,
   isUnchanged,
   type ConnectionHealth,
   type JoinResult,
   type RequestIntentInput,
+  type ShowSubscription,
   type ShowStateUnchanged,
   type VoteIntentInput,
   type VotePlayApi,
@@ -49,6 +56,12 @@ const BACKOFF_MAX_MS = 20_000;
 const HEARTBEAT_MS = 15_000;
 /** Telão: no máximo uma leitura por segundo, por mais votos que cheguem. */
 const REALTIME_MIN_GAP_MS = 1_000;
+/**
+ * Fila do repertório: só quem está com a aba aberta consulta, e mais devagar
+ * que o placar — apoio é decisão de minutos, não de segundos. Com 300 celulares
+ * na aba, ≈ 30 consultas/s, quase todas "nada mudou" (~100 B).
+ */
+const REPERTOIRE_POLL_MS = 10_000;
 /** Uma falha isolada é ruído de rede; duas seguidas é a tela mentindo. */
 const OFFLINE_AFTER_FAILURES = 2;
 
@@ -86,6 +99,15 @@ function translate(
   if (/não está no ar|já terminou|indisponível/i.test(message)) {
     throw new ApiError(message, 'show_not_live');
   }
+  if (/apoios acabaram/i.test(message)) {
+    throw new ApiError(message, 'no_supports_left');
+  }
+  if (/não está aberta para apoio|música não encontrada/i.test(message)) {
+    throw new ApiError('Essa música não está aberta para apoio agora.', 'song_unavailable');
+  }
+  if (/fila do repertório está desligada|apoio passa pelo Pix/i.test(message)) {
+    throw new ApiError(message, 'queue_closed');
+  }
   if (/Informe seu @/i.test(message)) {
     throw new ApiError('Informe seu @ do Instagram para votar.', 'instagram_required');
   }
@@ -99,6 +121,57 @@ function translate(
     throw new ApiError('Valor fora do permitido para este show.', 'invalid_amount');
   }
   throw new ApiError(fallback, 'unknown');
+}
+
+/** O que `get_repertoire_state` devolve — ver …200000_fila_repertorio.sql. */
+interface RepertoireWire {
+  unchanged?: true;
+  serverTime: string;
+  version: string;
+  listVersion?: string;
+  list?: { id: string; title: string; artistName: string }[];
+  enabled?: boolean;
+  showStatus?: ShowStatus;
+  perSession?: number;
+  left?: number;
+  weights?: number[];
+  flags?: number[];
+  order?: number[];
+  mine?: number[];
+}
+
+const FLAG_STATUS: RepertoireSongStatus[] = ['available', 'candidate', 'queued'];
+
+/** Monta o estado legível a partir da lista em cache e dos números da rodada. */
+function decodeRepertoire(
+  wire: RepertoireWire,
+  list: NonNullable<RepertoireWire['list']>,
+): RepertoireState {
+  const mine = new Set(wire.mine ?? []);
+  const songs: RepertoireSong[] = (wire.order ?? []).flatMap((idx, i) => {
+    const item = list[idx];
+    if (!item) return [];
+    const flag = wire.flags?.[idx] ?? 0;
+    return [{
+      id: item.id,
+      title: item.title,
+      artistName: item.artistName,
+      weight: wire.weights?.[idx] ?? 0,
+      status: FLAG_STATUS[flag & 3] ?? 'available',
+      pinned: (flag & 4) === 4,
+      mine: mine.has(idx),
+      rank: i + 1,
+    }];
+  });
+  return {
+    enabled: wire.enabled ?? false,
+    showStatus: wire.showStatus ?? 'live',
+    supportsPerSession: wire.perSession ?? 0,
+    supportsLeft: wire.left ?? 0,
+    songs,
+    serverTime: wire.serverTime,
+    version: wire.version,
+  };
 }
 
 export const supabaseApi: VotePlayApi = {
@@ -143,6 +216,125 @@ export const supabaseApi: VotePlayApi = {
       translate(error, 'Não foi possível registrar seu voto.');
     }
     return data as { voteId: string };
+  },
+
+  async setSongSupport(input) {
+    const { data, error } = await getSupabase().rpc('set_song_support', {
+      p_show_song_id: input.showSongId,
+      p_session_id: input.sessionId,
+      p_support: input.support,
+    });
+    if (error) translate(error, 'Não foi possível registrar seu apoio.');
+    return data as { supported: boolean; supportsLeft: number };
+  },
+
+  /**
+   * Fila do repertório por polling, com duas versões: a da lista (títulos,
+   * muda raramente) e a dos números. A lista fica em cache aqui e só é
+   * reenviada pelo banco quando muda.
+   */
+  subscribeRepertoire(showId, sessionId, observer): ShowSubscription {
+    const supabase = getSupabase();
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+    let again = false;
+    let failures = 0;
+    let backoff = BACKOFF_MIN_MS;
+    let health: ConnectionHealth | null = null;
+    let list: NonNullable<RepertoireWire['list']> | null = null;
+    let listVersion: string | null = null;
+    let last: RepertoireState | null = null;
+
+    const setHealth = (next: ConnectionHealth) => {
+      if (cancelled || health === next) return;
+      health = next;
+      observer.onHealth?.(next);
+    };
+
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      if (cancelled || document.hidden) return;
+      const stopped = last && (last.showStatus === 'ended' || last.showStatus === 'cancelled');
+      const wait = failures > 0
+        ? 500 + Math.round(Math.random() * backoff)
+        : jitter(stopped ? POLL_STOPPED_MS : REPERTOIRE_POLL_MS);
+      timer = setTimeout(() => void refresh(), wait);
+    };
+
+    const refresh = async () => {
+      if (cancelled) return;
+      if (inFlight) {
+        again = true;
+        return;
+      }
+      inFlight = true;
+      try {
+        const { data, error } = await supabase.rpc('get_repertoire_state', {
+          p_show_id: showId,
+          p_session_id: sessionId,
+          p_list_version: list ? listVersion : null,
+          p_version: list ? (last?.version ?? null) : null,
+        });
+        if (error) translate(error, 'Não foi possível carregar a fila.');
+        if (cancelled) return;
+        const wire = data as RepertoireWire;
+
+        if (wire.unchanged) {
+          if (last) observer.onState((last = { ...last, serverTime: wire.serverTime }));
+        } else {
+          if (wire.list) {
+            list = wire.list;
+            listVersion = wire.listVersion ?? null;
+          }
+          if (list) {
+            last = decodeRepertoire(wire, list);
+            observer.onState(last);
+          }
+        }
+        failures = 0;
+        backoff = BACKOFF_MIN_MS;
+        setHealth('live');
+      } catch {
+        if (cancelled) return;
+        failures += 1;
+        backoff = Math.min(backoff * 2, BACKOFF_MAX_MS);
+        if (failures >= OFFLINE_AFTER_FAILURES) setHealth('offline');
+      } finally {
+        inFlight = false;
+        if (!cancelled) {
+          if (again) {
+            again = false;
+            void refresh();
+          } else {
+            schedule();
+          }
+        }
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (timer) clearTimeout(timer);
+        timer = null;
+      } else {
+        void refresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    setHealth('connecting');
+    void refresh();
+
+    return {
+      unsubscribe: () => {
+        cancelled = true;
+        if (timer) clearTimeout(timer);
+        document.removeEventListener('visibilitychange', onVisibility);
+      },
+      refresh: () => void refresh(),
+    };
   },
 
   async createRequestIntent(_input: RequestIntentInput) {

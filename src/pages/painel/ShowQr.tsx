@@ -29,14 +29,14 @@ export default function ShowQr() {
       <div className="flex items-center gap-3 print:hidden">
         <Link
           to={`/painel/shows/${id}`}
-          className="vp-focus text-sm text-muted-foreground hover:text-foreground"
+          className="vp-focus -ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
         >
           ← Voltar
         </Link>
         <button
           type="button"
           onClick={() => window.print()}
-          className="vp-focus ml-auto rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          className="vp-focus ml-auto inline-flex min-h-11 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground"
         >
           Imprimir
         </button>
@@ -61,7 +61,8 @@ export default function ShowQr() {
 
       <div className="mx-auto mt-6 max-w-lg overflow-hidden rounded-2xl bg-white text-center text-black print:mt-0 print:rounded-none">
         {/* faixa coral: a marca sem gastar contraste do QR */}
-        <div className="flex items-center justify-center gap-2 bg-[#F34835] py-3 text-white">
+        {/* rótulo escuro sobre o coral: a regra do brandkit (branco dava 3,3:1) */}
+        <div className="flex items-center justify-center gap-2 bg-[#F34835] py-3 text-[#1A0B10]">
           <svg viewBox="0 0 40 40" className="h-5 w-5" aria-hidden fill="currentColor">
             <rect x="0" y="24" width="9" height="16" rx="4.5" />
             <rect x="15.5" y="12" width="9" height="28" rx="4.5" />

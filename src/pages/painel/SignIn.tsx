@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { env } from '@/config/env';
@@ -33,6 +34,12 @@ export default function SignIn() {
           <strong className="text-foreground"> build</strong>: mudar a variável só tem efeito
           no próximo deploy.
         </p>
+        <Link
+          to="/"
+          className="vp-focus mt-8 inline-flex min-h-11 items-center justify-center self-center rounded-lg px-4 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Sou da plateia — entrar com um código
+        </Link>
       </main>
     );
   }
@@ -61,10 +68,16 @@ export default function SignIn() {
         <button
           type="button"
           onClick={() => setSent(false)}
-          className="vp-focus mt-8 text-sm text-primary underline underline-offset-4"
+          className="vp-focus mt-8 inline-flex min-h-11 items-center justify-center self-center rounded-lg px-4 text-sm text-primary underline underline-offset-4"
         >
           Usar outro e-mail
         </button>
+        <Link
+          to="/"
+          className="vp-focus mt-8 inline-flex min-h-11 items-center justify-center self-center rounded-lg px-4 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Sou da plateia — entrar com um código
+        </Link>
       </main>
     );
   }
@@ -92,6 +105,12 @@ export default function SignIn() {
           {sending ? 'Enviando…' : 'Enviar link de acesso'}
         </Button>
       </form>
+      <Link
+        to="/"
+        className="vp-focus mt-8 inline-flex min-h-11 items-center justify-center self-center rounded-lg px-4 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+      >
+        Sou da plateia — entrar com um código
+      </Link>
     </main>
   );
 }

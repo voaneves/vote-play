@@ -1,6 +1,8 @@
 import type {
   DirectRequest,
   Payment,
+  RepertoireSong,
+  RepertoireState,
   Round,
   RoundCandidate,
   ShowPublic,
@@ -15,6 +17,7 @@ import {
   previewVoteWeight,
   type JoinResult,
   type RequestIntentInput,
+  type ShowSubscription,
   type VoteIntentInput,
   type VotePlayApi,
 } from './types';
@@ -46,6 +49,25 @@ const REPERTOIRE = [
   { title: 'Sozinho', artistName: 'Caetano Veloso' },
 ];
 
+/** O resto do repertório: fora da rodada, disponível para a fila. */
+const EXTRA_REPERTOIRE = [
+  { title: 'Wonderwall', artistName: 'Oasis' },
+  { title: 'Tempo Perdido', artistName: 'Legião Urbana' },
+  { title: 'Garota de Ipanema', artistName: 'Tom Jobim' },
+  { title: 'Aquarela', artistName: 'Toquinho' },
+  { title: 'Sweet Child O\' Mine', artistName: "Guns N' Roses" },
+  { title: 'Anna Júlia', artistName: 'Los Hermanos' },
+];
+
+interface MockSong {
+  id: string;
+  title: string;
+  artistName: string;
+  weight: number;
+  pinned: boolean;
+  firstAt: number;
+}
+
 interface MockShow {
   show: ShowPublic;
   round: Round;
@@ -57,6 +79,11 @@ interface MockShow {
   /** sessão → quando tocou em "Seguir". Espelha instagram_follow_clicked_at. */
   clicks: Map<string, string>;
   listeners: Set<() => void>;
+  /** fila do repertório */
+  songs: MockSong[];
+  /** sessionId → ids das músicas que apoia */
+  supports: Map<string, Set<string>>;
+  repListeners: Set<() => void>;
 }
 
 function makeShow(
@@ -83,6 +110,8 @@ function makeShow(
     roundDurationSeconds: 300,
     directRequestEnabled: true,
     directRequestPriceCents: 3000,
+    queueEnabled: true,
+    queueVotesPerSession: 3,
   };
 }
 
@@ -134,6 +163,15 @@ function createMockShow(
     listeners: new Set(),
     handles: new Map(),
     clicks: new Map(),
+    songs: [...REPERTOIRE, ...EXTRA_REPERTOIRE].map((song, i) => ({
+      id: uid(),
+      ...song,
+      weight: i < REPERTOIRE.length ? 0 : Math.floor(Math.random() * 12),
+      pinned: false,
+      firstAt: Date.now() - i * 1000,
+    })),
+    supports: new Map(),
+    repListeners: new Set(),
   };
 }
 
@@ -240,6 +278,63 @@ setInterval(() => {
     notify(s);
   }
 }, 4000);
+
+/** Plateia fictícia apoiando a fila, mais devagar que a rodada. */
+setInterval(() => {
+  for (const s of Object.values(SHOWS)) {
+    if (s.repListeners.size === 0 || s.show.voteMode === 'pix') continue;
+    const pool = s.songs.filter((m) => songStatus(s, m) === 'available');
+    const m = pool[Math.floor(Math.random() * pool.length)];
+    if (!m) continue;
+    m.weight += 1;
+    notifyRepertoire(s);
+  }
+}, 7000);
+
+function songStatus(s: MockShow, m: MockSong): RepertoireSong['status'] {
+  const inRound =
+    s.round.status === 'open' && s.round.candidates.some((c) => c.title === m.title);
+  return inRound ? 'candidate' : 'available';
+}
+
+function notifyRepertoire(s: MockShow) {
+  for (const fn of s.repListeners) fn();
+}
+
+/** Mesmo desempate do banco: escolhida, fixada, peso, primeiro apoio, ordem. */
+function repertoireSnapshot(s: MockShow, sessionId: string): RepertoireState {
+  const mine = s.supports.get(sessionId) ?? new Set<string>();
+  const statusRank = (st: RepertoireSong['status']) => (st === 'queued' ? 1 : 0);
+  const songs = s.songs
+    .map((m, idx) => ({ m, idx, status: songStatus(s, m) }))
+    .sort(
+      (a, b) =>
+        statusRank(b.status) - statusRank(a.status) ||
+        Number(b.m.pinned) - Number(a.m.pinned) ||
+        b.m.weight - a.m.weight ||
+        a.m.firstAt - b.m.firstAt ||
+        a.idx - b.idx,
+    )
+    .map(({ m, status }, i) => ({
+      id: m.id,
+      title: m.title,
+      artistName: m.artistName,
+      weight: m.weight,
+      status,
+      pinned: m.pinned,
+      mine: mine.has(m.id),
+      rank: i + 1,
+    }));
+  return {
+    enabled: s.show.queueEnabled,
+    showStatus: s.show.status,
+    supportsPerSession: s.show.queueVotesPerSession,
+    supportsLeft: Math.max(0, s.show.queueVotesPerSession - mine.size),
+    songs,
+    serverTime: iso(),
+    version: songs.map((x) => `${x.id}:${x.weight}:${x.mine}`).join('|'),
+  };
+}
 
 /** Fecha a rodada no tempo e abre a próxima, como tick_rounds() faz no banco. */
 setInterval(() => {
@@ -458,6 +553,62 @@ export const mockApi: VotePlayApi = {
     const p = payments.get(paymentId);
     if (!p) throw new ApiError('Pagamento não encontrado.', 'unknown');
     return { ...p };
+  },
+
+  async setSongSupport(input) {
+    await delay(150);
+    const s = byId(input.showId);
+    if (!s) throw new ApiError('Show indisponível.', 'show_not_found');
+    if (s.show.voteMode === 'pix') {
+      throw new ApiError('Neste show o apoio passa pelo Pix.', 'queue_closed');
+    }
+    if (s.show.voteMode === 'instagram' && !s.handles.has(input.sessionId)) {
+      throw new ApiError('Informe seu @ do Instagram para votar.', 'instagram_required');
+    }
+    const song = s.songs.find((m) => m.id === input.showSongId);
+    if (!song) throw new ApiError('Essa música não está na fila.', 'song_unavailable');
+    const mine = s.supports.get(input.sessionId) ?? new Set<string>();
+    s.supports.set(input.sessionId, mine);
+
+    if (input.support && !mine.has(song.id)) {
+      if (songStatus(s, song) !== 'available') {
+        throw new ApiError('Essa música não está aberta para apoio agora.', 'song_unavailable');
+      }
+      if (mine.size >= s.show.queueVotesPerSession) {
+        throw new ApiError('Seus apoios acabaram. Tire um apoio para dar a outra música.', 'no_supports_left');
+      }
+      mine.add(song.id);
+      song.weight += 1;
+    } else if (!input.support && mine.has(song.id)) {
+      mine.delete(song.id);
+      song.weight = Math.max(0, song.weight - 1);
+    }
+    notifyRepertoire(s);
+    return {
+      supported: input.support,
+      supportsLeft: Math.max(0, s.show.queueVotesPerSession - mine.size),
+    };
+  },
+
+  subscribeRepertoire(showId, sessionId, observer): ShowSubscription {
+    const s = byId(showId);
+    if (!s) {
+      observer.onHealth?.('offline');
+      return { unsubscribe: () => {}, refresh: () => {} };
+    }
+    const emit = () => observer.onState(repertoireSnapshot(s, sessionId));
+    s.repListeners.add(emit);
+    // a rodada muda o status das candidatas: a fila acompanha
+    s.listeners.add(emit);
+    emit();
+    observer.onHealth?.('live');
+    return {
+      unsubscribe: () => {
+        s.repListeners.delete(emit);
+        s.listeners.delete(emit);
+      },
+      refresh: emit,
+    };
   },
 
   subscribeShow(showId, sessionId, observer) {

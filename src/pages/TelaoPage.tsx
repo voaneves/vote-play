@@ -2,6 +2,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { ShowProvider } from '@/features/show/ShowProvider';
 import { CloudOff } from 'lucide-react';
 import { useShow } from '@/features/show/context';
+import { useRepertoire } from '@/features/show/useRepertoire';
 import { useCountdown } from '@/hooks/useCountdown';
 import { VotePlayQr } from '@/components/brand/VotePlayQr';
 import { isValidJoinCode, normalizeJoinCode } from '@/lib/joinCode';
@@ -31,12 +32,25 @@ export default function TelaoPage() {
 }
 
 function TelaoScreen() {
-  const { show, state, clockOffsetMs, status, health } = useShow();
+  const { show, session, state, clockOffsetMs, status, health } = useShow();
   const round = state?.round ?? null;
   const { secondsLeft, isRunningOut } = useCountdown(
     round?.closesAt ?? null,
     clockOffsetMs,
   );
+
+  // Sem rodada aberta, o espaço do placar mostra o topo da fila — antes era
+  // "próxima rodada em instantes", tela morta justamente quando a plateia
+  // mais tem tempo de olhar. Só consulta a fila enquanto ela está na tela.
+  const showQueue =
+    !!show &&
+    show.queueEnabled &&
+    show.voteMode !== 'pix' &&
+    state?.showStatus === 'live' &&
+    round?.status !== 'open';
+  const queue = useRepertoire(show?.id ?? null, session?.id ?? null, showQueue);
+  const topo = showQueue ? (queue.state?.songs ?? []).slice(0, 5) : [];
+  const topoMax = Math.max(1, ...topo.map((t) => t.weight));
 
   if (status !== 'ready' || !show) {
     return (
@@ -102,24 +116,57 @@ function TelaoScreen() {
                 ? 'Fim de show. Obrigado!'
                 : state?.showStatus === 'paused'
                   ? 'Intervalo'
-                  : 'Próxima rodada em instantes'}
+                  : topo.length > 0
+                    ? 'Próximas da fila · apoie pelo celular'
+                    : 'Próxima rodada em instantes'}
             </p>
           )}
         </header>
 
-        <ol className="space-y-4">
-          {ranked.map((candidate, index) => {
-            const share = percent(candidate.weight, round?.totalWeight ?? 0);
-            return (
-              <li
-                key={candidate.id}
-                className="vp-surface relative overflow-hidden px-6 py-5"
-              >
-                <div
-                  aria-hidden
-                  className={cn(
-                    'absolute inset-y-0 left-0 transition-[width] duration-700 ease-out',
-                    index === 0 ? 'bg-primary/25' : 'bg-muted/40',
+        {topo.length > 0 ? (
+          <ol className="space-y-4">
+            {topo.map((song, index) => {
+              return (
+                <li key={song.id} className="vp-surface relative overflow-hidden px-6 py-5">
+                  <div
+                    aria-hidden
+                    className={cn(
+                      'absolute inset-y-0 left-0 transition-[width] duration-700 ease-out',
+                      index === 0 ? 'bg-primary/25' : 'bg-muted/40',
+                    )}
+                    style={{ width: `${Math.round((song.weight / topoMax) * 100)}%` }}
+                  />
+                  <div className="relative flex items-center gap-6">
+                    <span className="tabular text-4xl font-bold text-muted-foreground">
+                      {index + 1}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-3xl font-semibold">{song.title}</span>
+                      <span className="block truncate text-xl text-muted-foreground">
+                        {song.status === 'queued' ? 'Escolhida na rodada · ' : ''}
+                        {song.artistName}
+                      </span>
+                    </span>
+                    <span className="tabular text-4xl font-bold">{song.weight}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <ol className="space-y-4">
+            {ranked.map((candidate, index) => {
+              const share = percent(candidate.weight, round?.totalWeight ?? 0);
+              return (
+                <li
+                  key={candidate.id}
+                  className="vp-surface relative overflow-hidden px-6 py-5"
+                >
+                  <div
+                    aria-hidden
+                    className={cn(
+                      'absolute inset-y-0 left-0 transition-[width] duration-700 ease-out',
+                      index === 0 ? 'bg-primary/25' : 'bg-muted/40',
                   )}
                   style={{ width: `${share}%` }}
                 />
@@ -141,6 +188,7 @@ function TelaoScreen() {
             );
           })}
         </ol>
+        )}
       </section>
     </main>
   );

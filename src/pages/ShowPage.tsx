@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ShowProvider } from '@/features/show/ShowProvider';
 import { useShow } from '@/features/show/context';
@@ -8,6 +8,7 @@ import { api, ApiError } from '@/lib/api';
 import { isValidJoinCode, normalizeJoinCode } from '@/lib/joinCode';
 import { formatCents } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { env } from '@/config/env';
 import { Button } from '@/components/ui/button';
 import { CandidateCard } from '@/components/show/CandidateCard';
 import { RoundTimer } from '@/components/show/RoundTimer';
@@ -15,11 +16,13 @@ import { AmountPicker } from '@/components/show/AmountPicker';
 import { QueueList } from '@/components/show/QueueList';
 import { InstagramGate } from '@/components/show/InstagramGate';
 import { ConnectionBanner } from '@/components/show/ConnectionBanner';
-import { ListMusic, Music4 } from 'lucide-react';
+import { RepertoireList } from '@/components/show/RepertoireList';
+import { useRepertoire } from '@/features/show/useRepertoire';
+import { ListMusic, ListOrdered, Music4 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import type { RoundCandidate } from '@/types/domain';
+import type { RepertoireSong, RoundCandidate } from '@/types/domain';
 
-type Tab = 'voting' | 'request';
+type Tab = 'voting' | 'repertoire' | 'request';
 
 export default function ShowPage() {
   const { code } = useParams<{ code: string }>();
@@ -34,7 +37,8 @@ export default function ShowPage() {
 function ShowScreen() {
   const { status, busy, error, show, session, state, health, lastSyncedAt, clockOffsetMs, retry, refresh } =
     useShow();
-  const [tab, setTab] = useState<Tab>('voting');
+  // null = a pessoa ainda não escolheu aba: segue o momento do show (abaixo)
+  const [chosenTab, setTab] = useState<Tab | null>(null);
   // o @ declarado nesta visita; o join já traz o de visitas anteriores
   const [handle, setHandle] = useState<string | null>(null);
 
@@ -54,15 +58,33 @@ function ShowScreen() {
   }
 
   if (status === 'error' || !show || !session) {
+    // Duas saídas, sempre: o erro pode ser de rede (tentar de novo resolve) ou
+    // do código (não existe, já terminou) — e aí repetir o mesmo código é um
+    // beco sem saída. A pessoa não sabe qual dos dois é, então as duas ficam.
     return (
-      <main className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-lg font-medium">{error}</p>
-        <Button onClick={retry} variant="secondary">
-          Tentar de novo
-        </Button>
+      <main className="flex min-h-[100dvh] flex-col items-center justify-center px-6 text-center">
+        <div className="w-full max-w-sm">
+          <h1 className="text-xl font-semibold">{error}</h1>
+          <Button asChild size="lg" className="mt-8 h-12 w-full font-semibold">
+            <Link to="/">Digitar outro código</Link>
+          </Button>
+          <Button onClick={retry} variant="secondary" className="mt-3 h-12 w-full">
+            Tentar de novo
+          </Button>
+        </div>
       </main>
     );
   }
+
+  // Fila no modo pix só com apoio pago (Fase 7): até lá a aba não aparece.
+  const queueAvailable = show.queueEnabled && show.voteMode !== 'pix';
+
+  // Sem escolha da pessoa, a aba acompanha o show: rodada aberta → votação;
+  // sem rodada e com fila → fila. Assim quem escaneia no intervalo entre
+  // rodadas cai onde há o que fazer, e a rodada nova puxa todo mundo para ela.
+  const tab: Tab =
+    chosenTab ??
+    (queueAvailable && state !== null && state.round?.status !== 'open' ? 'repertoire' : 'voting');
 
   // O portão só aparece no modo instagram e só até a pessoa declarar o @.
   const needsGate =
@@ -86,6 +108,12 @@ function ShowScreen() {
             <span className="tabular rounded-full border border-border px-2.5 py-1 font-mono text-xs tracking-widest text-muted-foreground">
               {show.joinCode}
             </span>
+            <Link
+              to="/"
+              className="vp-focus -mr-2 inline-flex min-h-11 items-center rounded-lg px-2 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Trocar de show
+            </Link>
             {health === 'degraded' && (
               <span className="text-[0.6875rem] leading-none text-muted-foreground">
                 reconectando
@@ -96,20 +124,23 @@ function ShowScreen() {
       </header>
 
       <main className="mx-auto w-full max-w-md flex-1 px-4 pb-28">
-        {tab === 'voting' ? (
-          needsGate ? (
-            <InstagramGate
-              profileHandle={show.instagramHandle!}
-              sessionId={session.id}
-              alreadyClicked={session.followClickedAt !== null}
-              onDone={(declared) => {
-                setHandle(declared);
-                refresh();
-              }}
-            />
-          ) : (
-            <VotingTab clockOffsetMs={clockOffsetMs} />
-          )
+        {tab !== 'request' && needsGate ? (
+          <InstagramGate
+            profileHandle={show.instagramHandle!}
+            sessionId={session.id}
+            alreadyClicked={session.followClickedAt !== null}
+            onDone={(declared) => {
+              setHandle(declared);
+              refresh();
+            }}
+          />
+        ) : tab === 'voting' ? (
+          <VotingTab
+            clockOffsetMs={clockOffsetMs}
+            onGoToQueue={queueAvailable ? () => setTab('repertoire') : undefined}
+          />
+        ) : tab === 'repertoire' ? (
+          <RepertoireTab />
         ) : (
           <RequestTab />
         )}
@@ -123,7 +154,17 @@ function ShowScreen() {
             Icon={ListMusic}
             label="Votação"
           />
-          {show.directRequestEnabled && (
+          {queueAvailable && (
+            <TabButton
+              active={tab === 'repertoire'}
+              onClick={() => setTab('repertoire')}
+              Icon={ListOrdered}
+              label="Fila"
+            />
+          )}
+          {/* Pedido direto é pago (Fase 8): sem pagamento na build, a aba some
+              em vez de mostrar um formulário que falha ao enviar. */}
+          {show.directRequestEnabled && env.paymentsEnabled && (
             <TabButton
               active={tab === 'request'}
               onClick={() => setTab('request')}
@@ -170,7 +211,13 @@ function TabButton({
   );
 }
 
-function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
+function VotingTab({
+  clockOffsetMs,
+  onGoToQueue,
+}: {
+  clockOffsetMs: number;
+  onGoToQueue?: () => void;
+}) {
   const navigate = useNavigate();
   const { show, session, state, refresh } = useShow();
   const [picking, setPicking] = useState<RoundCandidate | null>(null);
@@ -223,6 +270,11 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
           {winner ? winner.title : 'A próxima rodada começa já já'}
         </p>
         {winner && <p className="mt-1 text-muted-foreground">{winner.artistName}</p>}
+        {onGoToQueue && (
+          <Button onClick={onGoToQueue} variant="secondary" className="mt-6 h-12 w-full">
+            Enquanto isso, apoie músicas na fila
+          </Button>
+        )}
       </div>
     );
   }
@@ -284,7 +336,14 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
   };
 
   const handleTap = (candidate: RoundCandidate) => {
-    if (isPaid) return setPicking(candidate);
+    if (isPaid) {
+      // Sem pagamento de verdade nesta build (Fase 7), o seletor levaria a um
+      // erro depois de a pessoa escolher o valor. Melhor dizer antes.
+      if (!env.paymentsEnabled) {
+        return toast.info('O voto por Pix chega em breve neste show.');
+      }
+      return setPicking(candidate);
+    }
     if (alreadyVoted) return toast.info('Você já votou nesta rodada.');
     void handleFreeVote(candidate);
   };
@@ -302,7 +361,9 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
 
       <p className="mb-4 text-center text-sm text-muted-foreground" aria-live="polite">
         {isPaid
-          ? 'Escolha a música e quanto vale o seu voto.'
+          ? env.paymentsEnabled
+            ? 'Escolha a música e quanto vale o seu voto.'
+            : 'Neste show o voto é por Pix, que chega em breve. Acompanhe o placar.'
           : alreadyVoted
             ? 'Seu voto está computado. Aguarde a próxima rodada para votar de novo.'
             : 'Toque na música que você quer ouvir. Um voto por rodada.'}
@@ -334,6 +395,74 @@ function VotingTab({ clockOffsetMs }: { clockOffsetMs: number }) {
           onConfirm={handlePaidConfirm}
         />
       )}
+    </>
+  );
+}
+
+function RepertoireTab() {
+  const { show, session, state: showState } = useShow();
+  const { state, health, refresh } = useRepertoire(show?.id ?? null, session?.id ?? null, true);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  if (!show || !session) return null;
+
+  if (showState?.showStatus === 'ended' || showState?.showStatus === 'cancelled') {
+    return (
+      <div className="vp-surface mt-10 p-8 text-center">
+        <p className="text-2xl font-bold">O show terminou</p>
+        <p className="mt-2 text-muted-foreground">A fila fecha junto. Valeu por participar!</p>
+      </div>
+    );
+  }
+
+  if (state === null) {
+    return (
+      <p className="mt-10 animate-pulse text-center text-muted-foreground">
+        {health === 'offline' ? 'Sem conexão para carregar a fila…' : 'Carregando a fila…'}
+      </p>
+    );
+  }
+
+  if (!state.enabled) {
+    return (
+      <div className="vp-surface mt-10 p-8 text-center">
+        <p className="font-medium">A fila está fechada agora</p>
+        <p className="mt-1 text-sm text-muted-foreground">O artista pode abri-la a qualquer momento.</p>
+      </div>
+    );
+  }
+
+  const handleToggle = async (song: RepertoireSong) => {
+    if (pendingId) return;
+    setPendingId(song.id);
+    try {
+      await api.setSongSupport({
+        showId: show.id,
+        sessionId: session.id,
+        showSongId: song.id,
+        support: !song.mine,
+      });
+      navigator.vibrate?.(10);
+      // Anúncio único (o toast é região viva): a lista em si não é mais
+      // aria-live, senão o leitor de tela a relia inteira a cada consulta.
+      toast.success(song.mine ? `Apoio retirado de "${song.title}".` : `Você apoiou "${song.title}".`);
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Não foi possível registrar seu apoio.');
+      refresh();
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  return (
+    <>
+      {showState?.showStatus === 'paused' && (
+        <p className="mb-2 mt-2 text-center text-sm text-muted-foreground">
+          Intervalo: os apoios voltam a valer quando o show recomeçar.
+        </p>
+      )}
+      <RepertoireList state={state} pendingId={pendingId} onToggle={(s) => void handleToggle(s)} />
     </>
   );
 }

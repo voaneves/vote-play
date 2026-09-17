@@ -34,6 +34,25 @@ export const api: VotePlayApi = {
     (await provider()).setSessionInstagram(sessionId, handle),
   markInstagramFollowClick: async (sessionId) =>
     (await provider()).markInstagramFollowClick(sessionId),
+  setSongSupport: async (input) => (await provider()).setSongSupport(input),
+
+  subscribeRepertoire(showId, sessionId, observer) {
+    let inner: ReturnType<VotePlayApi['subscribeRepertoire']> | null = null;
+    let cancelled = false;
+
+    void provider().then((p) => {
+      if (cancelled) return;
+      inner = p.subscribeRepertoire(showId, sessionId, observer);
+    });
+
+    return {
+      unsubscribe: () => {
+        cancelled = true;
+        inner?.unsubscribe();
+      },
+      refresh: () => inner?.refresh(),
+    };
+  },
 
   subscribeShow(showId, sessionId, observer, options) {
     let inner: ReturnType<VotePlayApi['subscribeShow']> | null = null;

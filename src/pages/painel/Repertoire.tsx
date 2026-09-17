@@ -4,13 +4,16 @@ import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/context';
-import { createSong, deleteSong, listSongs } from '@/lib/painel/queries';
+import { createSong, deleteSong, listSongs, setSongActive } from '@/lib/painel/queries';
+import { cn } from '@/lib/utils';
 
 export default function Repertoire() {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
+  // Remover é definitivo: primeiro toque arma, segundo confirma (auditoria 9.4, U6).
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const songs = useQuery({ queryKey: ['songs'], queryFn: listSongs });
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: ['songs'] });
@@ -30,15 +33,32 @@ export default function Repertoire() {
       ),
   });
 
+  const active = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: boolean }) => setSongActive(id, value),
+    onSuccess: (_d, v) => {
+      toast.success(v.value ? 'Música reativada.' : 'Música desativada: não aparece nos próximos shows.');
+      invalidate();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const remove = useMutation({
     mutationFn: deleteSong,
-    onSuccess: invalidate,
-    onError: (err: Error) =>
-      toast.error(
-        /violates foreign key/i.test(err.message)
-          ? 'Não dá para excluir: a música já foi usada em um show.'
-          : err.message,
-      ),
+    onSuccess: () => {
+      setConfirmId(null);
+      invalidate();
+    },
+    onError: (err: Error, id: string) => {
+      setConfirmId(null);
+      if (/violates foreign key/i.test(err.message)) {
+        // Já usada em show: não some do histórico, mas pode sair de circulação.
+        toast.error('Essa música já foi usada em um show e não pode ser removida.', {
+          action: { label: 'Desativar', onClick: () => active.mutate({ id, value: false }) },
+        });
+        return;
+      }
+      toast.error(err.message);
+    },
   });
 
   const handleSubmit = (event: FormEvent) => {
@@ -81,22 +101,46 @@ export default function Repertoire() {
 
       <ul className="mt-6 space-y-2">
         {songs.data?.map((song) => (
-          <li key={song.id} className="vp-surface flex items-center gap-3 p-3">
+          <li
+            key={song.id}
+            className={cn('vp-surface flex flex-wrap items-center gap-2 p-3', !song.is_active && 'opacity-70')}
+          >
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{song.title}</span>
-              <span className="block truncate text-sm text-muted-foreground">
+              <span className="block break-words font-medium">{song.title}</span>
+              <span className="block break-words text-sm text-muted-foreground">
                 {song.artist_name}
                 {song.times_played > 0 && ` · tocada ${song.times_played}x`}
+                {!song.is_active && ' · desativada'}
               </span>
             </span>
-            <button
-              type="button"
-              onClick={() => remove.mutate(song.id)}
-              aria-label={`Remover ${song.title}`}
-              className="vp-focus rounded-lg p-2 text-muted-foreground transition hover:text-destructive"
-            >
-              <Trash2 className="h-4 w-4" aria-hidden />
-            </button>
+            {!song.is_active ? (
+              <Button variant="ghost" className="min-h-11" onClick={() => active.mutate({ id: song.id, value: true })}>
+                Reativar
+              </Button>
+            ) : confirmId === song.id ? (
+              <span className="flex gap-1">
+                <Button
+                  variant="destructive"
+                  className="min-h-11"
+                  disabled={remove.isPending}
+                  onClick={() => remove.mutate(song.id)}
+                >
+                  Remover
+                </Button>
+                <Button variant="ghost" className="min-h-11" onClick={() => setConfirmId(null)}>
+                  Cancelar
+                </Button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmId(song.id)}
+                aria-label={`Remover ${song.title}`}
+                className="vp-focus flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:text-destructive"
+              >
+                <Trash2 className="h-5 w-5" aria-hidden />
+              </button>
+            )}
           </li>
         ))}
       </ul>

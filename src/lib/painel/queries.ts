@@ -28,6 +28,8 @@ export interface ShowRow {
   instagram_handle: string | null;
   round_duration_seconds: number;
   direct_request_price_cents: number;
+  queue_enabled: boolean;
+  queue_votes_per_session: number;
   scheduled_for: string | null;
   created_at: string;
 }
@@ -50,7 +52,7 @@ export interface RoundRow {
 }
 
 const SHOW_COLUMNS =
-  'id,title,venue,city,status,join_code,vote_mode,instagram_handle,round_duration_seconds,direct_request_price_cents,scheduled_for,created_at';
+  'id,title,venue,city,status,join_code,vote_mode,instagram_handle,round_duration_seconds,direct_request_price_cents,queue_enabled,queue_votes_per_session,scheduled_for,created_at';
 
 /**
  * Desembrulha a resposta do supabase-js.
@@ -86,6 +88,17 @@ export async function createSong(ownerId: string, title: string, artistName: str
       .select('id,title,artist_name,is_active,times_played')
       .single(),
   );
+}
+
+/** Desativar é a saída para a música que já foi usada em show e não pode ser removida. */
+export async function setSongActive(id: string, active: boolean) {
+  const { data, error } = await getSupabase()
+    .from('songs')
+    .update({ is_active: active })
+    .eq('id', id)
+    .select('id');
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error('Não foi possível alterar esta música.');
 }
 
 export async function deleteSong(id: string) {
@@ -180,7 +193,105 @@ export async function addSongsToShow(showId: string, songIds: string[]) {
   if (error) throw new Error(error.message);
 }
 
+// ------------------------------------------------------- fila do repertório
+
+export interface QueueRow {
+  id: string;
+  song_id: string;
+  status: 'available' | 'candidate' | 'queued' | 'playing' | 'played' | 'skipped';
+  pinned: boolean;
+  hidden: boolean;
+  queue_weight: number;
+  queue_votes: number;
+  queue_first_vote_at: string | null;
+  played_at: string | null;
+  created_at: string;
+  songs: { title: string; artist_name: string } | null;
+}
+
+/**
+ * A fila como o artista vê: todas as músicas do show, com contadores.
+ * Lida direto da tabela (a RLS entrega só as do dono); a ordem é a mesma de
+ * `get_repertoire_state` — escolhida na rodada, fixada, apoios, primeiro apoio.
+ */
+export async function listQueue(showId: string): Promise<QueueRow[]> {
+  const res = await getSupabase()
+    .from('show_songs')
+    .select(
+      'id,song_id,status,pinned,hidden,queue_weight,queue_votes,queue_first_vote_at,played_at,created_at,songs(title,artist_name)',
+    )
+    .eq('show_id', showId);
+  const rows = unwrap(res) as unknown as QueueRow[];
+  const t = (iso: string | null) => (iso ? new Date(iso).getTime() : Number.POSITIVE_INFINITY);
+  return rows.sort(
+    (a, b) =>
+      Number(b.status === 'queued') - Number(a.status === 'queued') ||
+      Number(b.pinned) - Number(a.pinned) ||
+      b.queue_weight - a.queue_weight ||
+      t(a.queue_first_vote_at) - t(b.queue_first_vote_at) ||
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime() ||
+      a.id.localeCompare(b.id),
+  );
+}
+
+/** Tocada sai da fila e devolve os apoios; `false` desfaz. Regras no banco. */
+export async function setSongPlayed(showSongId: string, played = true) {
+  const { error } = await getSupabase().rpc('set_song_played', {
+    p_show_song_id: showSongId,
+    p_played: played,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Fixar e esconder são as duas únicas colunas da fila que o artista escreve. */
+export async function setSongFlags(showSongId: string, patch: { pinned?: boolean; hidden?: boolean }) {
+  const { data, error } = await getSupabase()
+    .from('show_songs')
+    .update(patch)
+    .eq('id', showSongId)
+    .select('id');
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error('Não foi possível alterar esta música.');
+}
+
+export async function setQueueConfig(
+  showId: string,
+  patch: { queue_enabled?: boolean; queue_votes_per_session?: number },
+) {
+  const { data, error } = await getSupabase()
+    .from('shows')
+    .update(patch)
+    .eq('id', showId)
+    .select('id');
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error('Não foi possível alterar este show.');
+}
+
 // ------------------------------------------------------------------ rodadas
+
+export interface RoundCandidateRow {
+  id: string;
+  title: string;
+  artist_name: string;
+  position: number;
+  weight: number;
+  votes_count: number;
+}
+
+/**
+ * O placar da rodada para o painel. Sem isto o artista via só "12 votos" e
+ * precisava do telão para saber quem estava ganhando (auditoria 9.4, U2).
+ */
+export async function listRoundCandidates(roundId: string): Promise<RoundCandidateRow[]> {
+  return unwrap(
+    await getSupabase()
+      .from('round_candidates')
+      .select('id,title,artist_name,position,weight,votes_count')
+      .eq('round_id', roundId)
+      .order('weight', { ascending: false })
+      .order('position'),
+  );
+}
 
 export async function currentRound(showId: string): Promise<RoundRow | null> {
   const { data, error } = await getSupabase()
@@ -226,6 +337,8 @@ export interface ParticipantRow {
   instagram_handle: string;
   nickname: string | null;
   votos: number;
+  /** apoios na fila do repertório (…200000) */
+  apoios: number;
   entrou_em: string;
 }
 

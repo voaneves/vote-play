@@ -72,8 +72,7 @@ Push na `main` dispara o workflow do GitHub Pages. O build copia `index.html` pa
 ## Componentes de UI
 
 O projeto mantém apenas os 4 componentes shadcn/ui realmente usados (`button`, `drawer`,
-`sonner`, `tooltip`). Os outros 45 que vinham no scaffold foram removidos junto com suas
-dependências. Para adicionar um novo quando o painel do artista precisar:
+`sonner`, `tooltip`). Para adicionar um novo quando o painel do artista precisar:
 
 ```bash
 npx shadcn@latest add table select dialog
@@ -92,6 +91,9 @@ Projeto concebido, desenhado e desenvolvido por **Victor Neves**
 — [voaneves.com](https://voaneves.com) · [github.com/voaneves](https://github.com/voaneves).
 Isso inclui a arquitetura, o schema do banco, a interface, os textos e a
 identidade visual (`brand/`).
+
+O que é autoral e o que é código aberto de terceiros, com licenças, está em
+[`CREDITOS.md`](CREDITOS.md).
 
 © 2026 Victor Neves. Todos os direitos reservados. Ver [`LICENSE`](LICENSE) —
 o repositório é público para demonstração, não para reúso.

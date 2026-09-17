@@ -59,6 +59,11 @@ export interface ShowPublic {
 
   directRequestEnabled: boolean;
   directRequestPriceCents: number;
+
+  /** Fila do repertório ligada. No modo pix ela só abre na Fase 7 (apoio pago). */
+  queueEnabled: boolean;
+  /** Quantos apoios cada pessoa tem ao mesmo tempo. */
+  queueVotesPerSession: number;
 }
 
 export interface RoundCandidate {
@@ -141,6 +146,48 @@ export interface AudienceSession {
    * pessoa a repetir o passo: ela já foi ao Instagram uma vez.
    */
   followClickedAt: string | null;
+}
+
+/**
+ * Onde a música está, do ponto de vista da fila.
+ *   available — pode receber apoio
+ *   candidate — está na rodada aberta agora (vota-se nela lá)
+ *   queued    — venceu uma rodada: é a próxima a tocar
+ * Tocadas e escondidas não aparecem.
+ */
+export type RepertoireSongStatus = 'available' | 'candidate' | 'queued';
+
+export interface RepertoireSong {
+  /** id em `show_songs` */
+  id: string;
+  title: string;
+  artistName: string;
+  /** Soma dos apoios. */
+  weight: number;
+  status: RepertoireSongStatus;
+  /** Fixada no topo pelo artista. */
+  pinned: boolean;
+  /** Esta sessão apoia a música. */
+  mine: boolean;
+  /** 1 = a próxima da fila. */
+  rank: number;
+}
+
+/**
+ * A fila do repertório, já em ordem de ranking.
+ *
+ * Chega por consulta própria, separada do placar da rodada, e só para quem
+ * está olhando: o repertório inteiro a cada 4 s não caberia no egress do
+ * plano Free (plan.md, 8 e 5.1).
+ */
+export interface RepertoireState {
+  enabled: boolean;
+  showStatus: ShowStatus;
+  supportsPerSession: number;
+  supportsLeft: number;
+  songs: RepertoireSong[];
+  serverTime: string;
+  version: string;
 }
 
 /**

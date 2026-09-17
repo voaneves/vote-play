@@ -7,23 +7,19 @@ import { useAuth } from '@/features/auth/context';
 import { createShow, listShows } from '@/lib/painel/queries';
 import { isValidInstagramHandle } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import type { ShowStatus, VoteMode } from '@/types/domain';
-
-const STATUS_LABEL: Record<ShowStatus, string> = {
-  draft: 'Rascunho',
-  ready: 'Pronto',
-  live: 'No ar',
-  paused: 'Pausado',
-  ended: 'Encerrado',
-  cancelled: 'Cancelado',
-};
+import { env } from '@/config/env';
+import { SHOW_STATUS_LABEL as STATUS_LABEL } from '@/lib/painel/labels';
+import type { VoteMode } from '@/types/domain';
 
 export default function Shows() {
   const { userId } = useAuth();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [venue, setVenue] = useState('');
-  const [voteMode, setVoteMode] = useState<VoteMode>('pix');
+  // Instagram é o carro-chefe e funciona hoje. Pix nascia como padrão e é o
+  // único modo que não funciona até a Fase 7 — o primeiro show de um artista
+  // novo saía quebrado (auditoria 9.4, U3).
+  const [voteMode, setVoteMode] = useState<VoteMode>('instagram');
   const [instagramHandle, setInstagramHandle] = useState('');
 
   const shows = useQuery({ queryKey: ['shows'], queryFn: listShows });
@@ -85,18 +81,24 @@ export default function Shows() {
           <div className="grid gap-2 sm:grid-cols-3">
             {(
               [
-                { value: 'pix', label: 'Pix', hint: 'Todo voto é pago' },
                 { value: 'instagram', label: 'Instagram', hint: 'Grátis, pede o @' },
                 { value: 'free', label: 'Grátis', hint: 'Sem portão' },
-              ] as { value: VoteMode; label: string; hint: string }[]
+                {
+                  value: 'pix',
+                  label: 'Pix',
+                  hint: env.paymentsEnabled ? 'Todo voto é pago' : 'Em breve',
+                  disabled: !env.paymentsEnabled,
+                },
+              ] as { value: VoteMode; label: string; hint: string; disabled?: boolean }[]
             ).map((opt) => (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => setVoteMode(opt.value)}
                 aria-pressed={voteMode === opt.value}
+                disabled={opt.disabled}
                 className={cn(
-                  'vp-focus rounded-xl border p-3 text-left transition',
+                  'vp-focus min-h-11 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50',
                   voteMode === opt.value
                     ? 'border-primary bg-primary/10'
                     : 'border-border hover:border-primary/40',
@@ -111,7 +113,7 @@ export default function Shows() {
 
         {voteMode === 'instagram' && (
           <div>
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 focus-within:shadow-[0_0_0_2px_var(--color-background),0_0_0_4px_var(--color-ring)]">
               <span aria-hidden className="text-muted-foreground">@</span>
               <input
                 value={instagramHandle}

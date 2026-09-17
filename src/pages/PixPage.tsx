@@ -112,18 +112,20 @@ export default function PixPage() {
     <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-5 py-8">
       <Link
         to={`/s/${code}`}
-        className="vp-focus text-sm text-muted-foreground hover:text-foreground"
+        className="vp-focus -ml-2 inline-flex min-h-11 items-center self-start rounded-lg px-2 text-sm text-muted-foreground hover:text-foreground"
       >
         ← Cancelar
       </Link>
 
       <div className="mt-6 text-center">
-        <p className="text-sm uppercase tracking-widest text-muted-foreground">
-          {payment.purpose === 'vote' ? 'Voto' : 'Pedido de música'}
-        </p>
-        <p className="tabular mt-1 text-4xl font-bold">
-          {formatCents(payment.amountCents)}
-        </p>
+        <h1>
+          <span className="block text-sm uppercase tracking-widest text-muted-foreground">
+            {payment.purpose === 'vote' ? 'Voto' : 'Pedido de música'}
+          </span>
+          <span className="tabular mt-1 block text-4xl font-bold">
+            {formatCents(payment.amountCents)}
+          </span>
+        </h1>
       </div>
 
       {expired ? (

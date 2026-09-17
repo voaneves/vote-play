@@ -124,7 +124,7 @@ export function InstagramGate({ profileHandle, sessionId, alreadyClicked, onDone
 
             <div
               className={cn(
-                'flex items-center gap-2 rounded-xl border px-4 transition-colors',
+                'flex items-center gap-2 rounded-xl border px-4 transition-colors focus-within:shadow-[0_0_0_2px_var(--color-background),0_0_0_4px_var(--color-ring)]',
                 visited
                   ? 'border-border bg-card focus-within:ring-2 focus-within:ring-ring'
                   : 'border-dashed border-border/60 bg-card/40',

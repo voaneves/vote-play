@@ -15,7 +15,7 @@
  */
 
 // Trocar a versão invalida tudo. O `activate` apaga as versões anteriores.
-const VERSAO = 'vote-play-v1';
+const VERSAO = 'vote-play-v2'; // v2: ícones novos (brand/gerar_icones.py)
 const ESCOPO = new URL(self.registration.scope).pathname;
 
 /**
@@ -28,9 +28,10 @@ const ESCOPO = new URL(self.registration.scope).pathname;
 const CASCA = [
   ESCOPO,
   `${ESCOPO}index.html`,
-  `${ESCOPO}favicon.svg`,
-  `${ESCOPO}icon-180.png`,
-  `${ESCOPO}site.webmanifest`,
+  `${ESCOPO}favicon.svg?v=2`,
+  `${ESCOPO}favicon.ico?v=2`,
+  `${ESCOPO}icon-180.png?v=2`,
+  `${ESCOPO}site.webmanifest?v=2`,
 ];
 
 /** Último recurso: a primeira visita foi offline e não há nem index.html. */
