@@ -1,10 +1,1 @@
-<!-- Vote Play — Victor Neves (voaneves.com) · © 2026. Todos os direitos reservados. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vote Play">
-  <title>Vote Play — símbolo</title>
-  <rect width="64" height="64" rx="14" fill="#180C0F"/>
-  <g fill="#F34835">
-    <rect x="12" y="38" width="9" height="16" rx="4.5"/>
-    <rect x="27.5" y="26" width="9" height="28" rx="4.5"/>
-    <rect x="43" y="14" width="9" height="40" rx="4.5"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" aria-label="Vote Play" role="img" viewBox="0 0 64 64"><title>Vote Play — símbolo</title><rect width="64" height="64" fill="#180C0F" rx="14"/><g fill="#F34835"><rect width="9" height="16" x="12" y="38" rx="4.5"/><rect width="9" height="28" x="27.5" y="26" rx="4.5"/><rect width="9" height="40" x="43" y="14" rx="4.5"/></g></svg>
