@@ -7,14 +7,21 @@
  * módulos formem o desenho. O código sai 100% válido: a correção de erro fica
  * inteira para câmera ruim, luz de bar e cartão amassado.
  *
- * De onde vêm os bits livres: a URL é seguida de "#" e de uma sequência de
- * dígitos (segmento numérico). O navegador não manda o fragmento ao servidor e
- * o app o apaga da barra de endereço ao abrir (ver main.tsx). Cada grupo de 3
- * dígitos ocupa 10 bits, todos livres — com uma condição: o grupo não pode
- * passar de 999. Fixar o bit mais alto em 0 de saída resolveria, mas deixaria
- * 1 módulo em cada 10 do miolo impossível de pintar. Em vez disso o sistema é
- * resolvido com os 10 bits livres e, se algum grupo passar de 999, só o bit
- * alto DAQUELE grupo é fixado e o sistema é resolvido de novo.
+ * De onde vêm os bits livres — dois modos (`FreeBits`):
+ *
+ * - `padding` (padrão): depois da URL vem o terminador (0000) e, até encher a
+ *   capacidade, bytes de enchimento. A especificação manda que esses bytes
+ *   sejam 0xEC/0x11 alternados, mas o leitor para de ler no terminador e nunca
+ *   olha para eles — então eles viram os bits livres, 8 por byte, sem
+ *   restrição. O QR carrega SÓ a URL: a câmera mostra `…/s/ABC234`, limpo.
+ *   É fora da letra da norma, por isso o teste físico (plan.md, 5.3.1) exige
+ *   iPhone e Android.
+ * - `fragment` (plano B, 100% dentro da norma): a URL é seguida de "#" e de
+ *   dígitos. O defeito é visível — a câmera mostra o número enorme antes de
+ *   abrir, com cara de link suspeito. O app apaga o fragmento ao abrir
+ *   (main.tsx), mas a prévia já foi vista. Cada grupo de 3 dígitos ocupa 10
+ *   bits livres, com a condição de não passar de 999: se algum grupo passa,
+ *   só o bit alto DAQUELE grupo é fixado e o sistema é resolvido de novo.
  *
  * Por que dá para resolver: Reed-Solomon é linear. Todo bit do código final —
  * dado ou correção — é um XOR de bits da mensagem. Então "este módulo tem de
@@ -23,7 +30,7 @@
  * equação contradiz as anteriores, aquele módulo fica como os dados mandarem —
  * por isso os módulos mais importantes do desenho entram primeiro.
  *
- * O resto do arquivo é um codificador de QR comum (modo byte + numérico,
+ * O resto do arquivo é um codificador de QR comum (modos alfanumérico, byte e numérico,
  * versões 1 a 20), escrito aqui para expor o que as bibliotecas escondem: a
  * posição de cada bit na matriz. A matriz foi conferida bit a bit contra a
  * biblioteca `qrcode`, com a mesma máscara (plan.md, 5.3.1).
@@ -34,9 +41,9 @@ export type EccLevel = 'L' | 'M' | 'Q' | 'H';
 /** Papel de cada módulo na peça final — decide a cor ao desenhar. */
 export const ROLE_DATA = 0;
 export const ROLE_FUNCTION = 1;
-/** Módulo escuro que faz parte das barras do logo. */
+/** Módulo da zona do logo cujo centro cai DENTRO de uma barra (a arte é escura ali). */
 export const ROLE_LOGO = 2;
-/** Módulo claro que contorna as barras. */
+/** Módulo da zona do logo fora das barras — o contorno (a arte é clara ali). */
 export const ROLE_HALO = 3;
 
 export interface QrSymbol {
@@ -52,6 +59,20 @@ export interface QrSymbol {
   /** Módulos do desenho que saíram como pedidos / total pedido. */
   logoHit: number;
   logoTotal: number;
+  /**
+   * Geometria das barras, só quando TODOS os módulos do desenho saíram certos.
+   * Aí dá para desenhá-las como pílulas em vetor: com raio = meia largura, o
+   * centro de cada módulo cai do lado certo da curva — e o centro é onde o
+   * leitor amostra. Com algum módulo errado, `null`, e o desenho é em módulos.
+   */
+  logoBars: LogoBar[] | null;
+  /**
+   * Pior caso de dano, por bloco: códigos tocados pelos módulos do logo que
+   * DISCORDAM da arte, dividido pelo que a correção de erro do bloco conserta.
+   * ≤ 1 quer dizer que, mesmo que o leitor erre TODOS esses pontos, o código
+   * ainda decodifica. 0 = desenho perfeito.
+   */
+  damage: number;
 }
 
 const MAX_VERSION = 20;
@@ -319,24 +340,71 @@ interface Message {
   digitStart: number;
 }
 
-function buildMessage(bytes: Uint8Array, ver: number, ecc: EccLevel, withFree: boolean): Message | null {
+/** Onde ficam os bits que desenham o logo. Ver o comentário do topo. */
+export type FreeBits = 'padding' | 'fragment';
+
+const ALNUM = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+
+/** Trecho da mensagem: alfanumérico (5,5 bits/caractere) ou byte (8). */
+export interface Segment {
+  mode: 'alnum' | 'byte';
+  data: string;
+}
+
+/**
+ * Divide a URL em [esquema + domínio em MAIÚSCULAS, alfanumérico] + [resto,
+ * byte]. Esquema e domínio não diferenciam maiúsculas — o navegador os
+ * normaliza antes de pedir a página (conferido em voaneves.com) —, e em
+ * maiúsculas cabem no modo alfanumérico. "https://voaneves.com/" cai de 168
+ * para 116 bits: são ~5 bytes a menos de URL fixa, e é exatamente a URL fixa
+ * que empurrava o desenho para fora do centro. O CAMINHO não entra: o GitHub
+ * Pages diferencia maiúsculas (/VOTE-PLAY/ dá 404 — também conferido).
+ */
+export function urlSegments(url: string): Segment[] {
+  const match = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+\/)(.*)$/i.exec(url);
+  if (!match) return [{ mode: 'byte', data: url }];
+  const head = match[1].toUpperCase();
+  if (![...head].every((ch) => ALNUM.includes(ch))) return [{ mode: 'byte', data: url }];
+  return match[2] ? [{ mode: 'alnum', data: head }, { mode: 'byte', data: match[2] }] : [{ mode: 'alnum', data: head }];
+}
+
+function buildMessage(
+  segments: Segment[],
+  ver: number,
+  ecc: EccLevel,
+  free: FreeBits | null,
+): Message | null {
   const capacity = dataCodewords(ver, ecc) * 8;
   const ccByte = ver <= 9 ? 8 : 16;
+  const ccAlnum = ver <= 9 ? 9 : 11;
   const ccNum = ver <= 9 ? 10 : 12;
   const bits: number[] = [];
   const push = (value: number, len: number) => {
     for (let i = len - 1; i >= 0; i--) bits.push(((value >>> i) & 1) === 1 ? ONE : ZERO);
   };
 
-  push(0b0100, 4);
-  push(bytes.length, ccByte);
-  for (const b of bytes) push(b, 8);
+  for (const seg of segments) {
+    if (seg.mode === 'alnum') {
+      push(0b0010, 4);
+      push(seg.data.length, ccAlnum);
+      for (let i = 0; i < seg.data.length; i += 2) {
+        const a = ALNUM.indexOf(seg.data[i]);
+        if (i + 1 < seg.data.length) push(a * 45 + ALNUM.indexOf(seg.data[i + 1]), 11);
+        else push(a, 6);
+      }
+    } else {
+      const bytes = new TextEncoder().encode(seg.data);
+      push(0b0100, 4);
+      push(bytes.length, ccByte);
+      for (const b of bytes) push(b, 8);
+    }
+  }
   if (bits.length > capacity) return null;
 
   let freeCount = 0;
   let groups = 0;
   let digitStart = -1;
-  if (withFree) {
+  if (free === 'fragment') {
     groups = Math.floor((capacity - bits.length - 4 - ccNum) / 10);
     if (groups * 3 >= 1 << ccNum) groups = Math.floor(((1 << ccNum) - 1) / 3);
     if (groups < 1) return null;
@@ -348,10 +416,17 @@ function buildMessage(bytes: Uint8Array, ver: number, ecc: EccLevel, withFree: b
     }
   }
 
-  // terminador, alinhamento em byte e bytes de enchimento da especificação
+  // terminador e alinhamento em byte
   for (let i = 0; i < 4 && bits.length < capacity; i++) bits.push(ZERO);
   while (bits.length % 8 !== 0) bits.push(ZERO);
-  for (let pad = 0xec; bits.length < capacity; pad ^= 0xec ^ 0x11) push(pad, 8);
+
+  if (free === 'padding') {
+    // o leitor já parou no terminador: daqui em diante tudo é livre
+    while (bits.length < capacity) bits.push(freeCount++);
+    if (freeCount === 0) return null;
+  } else {
+    for (let pad = 0xec; bits.length < capacity; pad ^= 0xec ^ 0x11) push(pad, 8);
+  }
 
   return { bits: Int32Array.from(bits), freeCount, digitGroups: groups, digitStart };
 }
@@ -435,9 +510,9 @@ function penalty(g: Grid): number {
 
 /** QR comum em modo byte. `mask` e `version` fixam a escolha (útil para conferência); sem eles, decide sozinho. */
 export function encodeText(text: string, ecc: EccLevel = 'M', mask?: number, version?: number): QrSymbol {
-  const bytes = new TextEncoder().encode(text);
+  const segments: Segment[] = [{ mode: 'byte', data: text }];
   for (let ver = version ?? 1; ver <= (version ?? MAX_VERSION); ver++) {
-    const msg = buildMessage(bytes, ver, ecc, false);
+    const msg = buildMessage(segments, ver, ecc, null);
     if (!msg) continue;
     const stream = codewordStream(messageBytes(msg, null), blockLayout(ver, ecc));
     let best: Grid | null = null;
@@ -452,7 +527,7 @@ export function encodeText(text: string, ecc: EccLevel = 'M', mask?: number, ver
     const g = best as Grid;
     return {
       version: ver, ecc, mask: bestMask, size: g.size, modules: g.dark,
-      role: Uint8Array.from(g.isFunction), text, logoHit: 0, logoTotal: 0,
+      role: Uint8Array.from(g.isFunction), text, logoHit: 0, logoTotal: 0, logoBars: null, damage: 0,
     };
   }
   throw new Error('texto grande demais para o QR');
@@ -468,43 +543,65 @@ interface Target {
   weight: number;
 }
 
+/** Barra do logo em coordenadas da matriz (módulos). */
+export interface LogoBar {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface LogoLayout {
+  targets: Target[];
+  bars: LogoBar[];
+  /** Deslocamento do centro do desenho em relação ao centro do código, em módulos. */
+  offX: number;
+  offY: number;
+  /** Lado do desenho (largura = altura da barra alta), em módulos. */
+  extent: number;
+}
+
 /**
  * As três barras em módulos: largura, vão e alturas na proporção do símbolo
- * (16, 28 e 40 de 40). Com barra de 4 módulos as pontas são arredondadas — o
- * módulo do canto de cada ponta fica claro, e a barra vira pílula; com 3, um
- * canto cortado faria um lápis, então a ponta fica reta. Em volta, um contorno
- * claro de 1 módulo separa o desenho do ruído dos dados.
+ * (16, 28 e 40 de 40). Cada barra é uma PÍLULA (raio = meia largura), e um
+ * módulo da caixa da barra é escuro se e só se o CENTRO dele cai dentro da
+ * pílula. É essa a regra que deixa desenhar a pílula em vetor por cima: o
+ * leitor amostra o centro do módulo, e o centro de cada módulo está do lado
+ * certo da curva por construção. Em volta, um contorno claro de 1 módulo
+ * separa o desenho do ruído dos dados.
  *
- * `dx` desloca o desenho na horizontal. Os primeiros bytes da mensagem — a
- * URL, que não muda — ocupam as colunas da direita, e ali nenhum módulo
- * obedece; um módulo para a esquerda às vezes é o que separa um contorno
- * falhado de um desenho inteiro. Num símbolo assimétrico como as barras
- * ascendentes, 1 módulo fora do centro não se nota.
+ * Devolve `null` se o desenho (com o contorno) sair da matriz ou encostar num
+ * padrão de função — localizador, temporização ou alinhamento.
  */
-function logoTargets(g: Grid, dx: number): Target[] {
+function logoTargets(g: Grid, dx: number, dy: number, barW: number, gap: number): LogoLayout | null {
   const s = g.size;
-  const barW = s >= 37 ? 4 : 3;
-  const gap = 2;
-  const round = barW >= 4;
   const total = barW * 3 + gap * 2;
   const heights = [Math.round(total * 0.4), Math.round(total * 0.7), total];
   const x0 = Math.floor((s - total) / 2) + dx;
-  const y0 = Math.floor((s - total) / 2);
+  const y0 = Math.floor((s - total) / 2) + dy;
   const bottom = y0 + total; // exclusivo
+  if (x0 - 1 < 0 || y0 - 1 < 0 || x0 + total + 1 > s || bottom + 1 > s) return null;
 
   const role = new Map<number, 0 | 1>();
   const priority = new Map<number, number>();
+  const bars: LogoBar[] = [];
+  const r = barW / 2;
   for (let b = 0; b < 3; b++) {
     const bx = x0 + b * (barW + gap);
     const top = bottom - heights[b];
+    bars.push({ x: bx, y: top, w: barW, h: heights[b] });
     for (let y = top; y < bottom; y++) {
       for (let x = bx; x < bx + barW; x++) {
-        const tip = y === top || y === bottom - 1;
-        const corner = round && tip && (x === bx || x === bx + barW - 1);
+        // centro do módulo, relativo à barra
+        const cx = x - bx + 0.5;
+        const cy = y - top + 0.5;
+        const ay = cy < r ? r : cy > heights[b] - r ? heights[b] - r : cy;
+        const inside = (cx - r) ** 2 + (cy - ay) ** 2 <= r * r;
         const cell = y * s + x;
-        role.set(cell, corner ? 0 : 1);
+        role.set(cell, inside ? 1 : 0);
+        const tip = cy < r || cy > heights[b] - r;
         // miolo da barra primeiro, pontas depois, cantos claros por último
-        priority.set(cell, corner ? 1 : tip ? 3 : 4);
+        priority.set(cell, !inside ? 1 : tip ? 3 : 4);
       }
     }
   }
@@ -512,12 +609,9 @@ function logoTargets(g: Grid, dx: number): Target[] {
     if (!dark) continue;
     const cx = cell % s;
     const cy = (cell - cx) / s;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const x = cx + dx;
-        const y = cy + dy;
-        if (x < 0 || y < 0 || x >= s || y >= s) continue;
-        const n = y * s + x;
+    for (let ny = cy - 1; ny <= cy + 1; ny++) {
+      for (let nx = cx - 1; nx <= cx + 1; nx++) {
+        const n = ny * s + nx;
         if (!role.has(n)) {
           role.set(n, 0);
           priority.set(n, 2);
@@ -528,12 +622,18 @@ function logoTargets(g: Grid, dx: number): Target[] {
 
   const targets: Target[] = [];
   for (const [cell, dark] of role) {
-    if (g.isFunction[cell]) continue;
+    if (g.isFunction[cell]) return null;
     targets.push({ cell, dark, weight: priority.get(cell) as number });
   }
   // estável: mesma entrada, mesmo desenho
   targets.sort((a, b) => b.weight - a.weight || a.cell - b.cell);
-  return targets;
+  return {
+    targets,
+    bars,
+    offX: x0 + total / 2 - s / 2,
+    offY: y0 + total / 2 - s / 2,
+    extent: total,
+  };
 }
 
 /** Forma afim de cada bit do fluxo final: bitset de variáveis + bit constante no fim. */
@@ -695,51 +795,146 @@ function solve(
   return xs;
 }
 
-/** Fração do desenho que precisa sair certa para a peça ser aceita de cara. */
-const GOOD_ENOUGH = 0.985;
-/** Abaixo disto o desenho sai esburacado: melhor um QR comum. */
-const ACCEPTABLE = 0.9;
+/**
+ * Largura de barra e vão, em módulos. Uma só, medida:
+ * - 5 ou mais: mesmo com ZERO pontos, o zbar deixou de ler 30 de 30 códigos
+ *   no limite de distância (110 px com desfoque) — área coral grande demais
+ *   vira cinza quando a imagem borra;
+ * - 3 (ímpar): o módulo do canto de cada ponta tem o centro dentro da pílula,
+ *   mas quase toda a área fora dela; borrado, lê claro. O ZXing caiu para
+ *   14 de 30 nesse limite;
+ * - 4: lê igual a um QR comum nos mesmos testes.
+ */
+const LOGO_SPECS: ReadonlyArray<readonly [number, number]> = [[4, 2]];
+
+/** Deslocamentos até 3 módulos, do centro para fora. */
+const OFFSETS: ReadonlyArray<readonly [number, number]> = (() => {
+  const out: Array<[number, number]> = [];
+  for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) out.push([dx, dy]);
+  return out.sort((a, b) => a[0] ** 2 + a[1] ** 2 - (b[0] ** 2 + b[1] ** 2) || a[0] - b[0] || a[1] - b[1]);
+})();
+
+/** Bônus por nível de correção: mais correção é mais folga no bar. */
+const ECC_BONUS: Record<EccLevel, number> = { L: 0, M: 4, Q: 8, H: 12 };
+/** Custo de cada ponto (módulo que discorda da arte). */
+const DOT_COST = 0.4;
+/**
+ * Teto de dano aceito (ver `QrSymbol.damage`). Medido, não chutado: com
+ * 60 códigos degradados até o limite da leitura (110 px com desfoque), teto
+ * 0,25 lê igual a um QR comum (60/60 no ZXing e no zbar); 0,5 cai para 36/60
+ * e 1,0 para 0/60. Os pontos pequenos são os primeiros a sumir com distância
+ * e desfoque, então quase toda a correção de erro tem de sobrar para o bar.
+ */
+const MAX_DAMAGE = 0.25;
+
+/** Maior lado do desenho, como fração do lado do código. */
+const MAX_EXTENT = 0.45;
 
 /**
- * QR do show com as barras do Vote Play desenhadas pelos dados.
- *
- * Quem limita o desenho não é a quantidade de bits livres, é ONDE eles caem.
- * Os módulos de um bloco de correção só obedecem se o próprio bloco tiver
- * bits livres, e a URL enche o primeiro bloco inteiro. Então:
- *
- * - tenta M antes de L, e as versões de 3 a 6 em ordem — da 7 em diante há um
- *   padrão de alinhamento no centro exato, em cima da barra do meio;
- * - em cada uma, o desenho no centro e, se falhar, deslocado 1 ou 2 módulos;
- * - aceita a primeira que acerta ≥ 98,5% dos módulos do desenho;
- * - entre as 8 máscaras, a que mais acerta e, no empate, a de menor
- *   penalidade da especificação.
- *
- * Na prática a URL de produção (39 caracteres) sai na versão 5, nível L, em
- * bloco único: nenhum módulo é sacrificado, então a correção de 7% do L está
- * inteira — ao contrário do logo colado, que gastava a do H antes de o
- * celular ler.
+ * Nota da composição, sem contar os pontos: tamanho do desenho em relação ao
+ * código (é o que faz a marca ser reconhecida de longe), distância do centro
+ * (1 módulo fora custa 6 pontos na horizontal e 4 na vertical) e tamanho do
+ * código (módulo menor lê de mais perto).
  */
-export function encodeWithLogo(url: string): QrSymbol {
-  const bytes = new TextEncoder().encode(`${url}#`);
-  let best: QrSymbol | null = null;
-  for (const ecc of ['M', 'L'] as const) {
-    for (let ver = 3; ver <= 6; ver++) {
-      const msg = buildMessage(bytes, ver, ecc, true);
+function layoutScore(
+  layout: Pick<LogoLayout, 'extent' | 'offX' | 'offY'>,
+  size: number,
+  ecc: EccLevel,
+): number {
+  return (
+    (layout.extent / size) * 100 -
+    Math.abs(layout.offX) * 6 -
+    Math.abs(layout.offY) * 4 -
+    (size - 29) * 0.5 +
+    ECC_BONUS[ecc]
+  );
+}
+
+/**
+ * QR do show com as barras do Vote Play — desenhadas pelos dados E por cima.
+ *
+ * Duas técnicas juntas:
+ *
+ * 1. **Dados controlados (QArt).** O gerador escolhe os bits livres para que
+ *    o máximo de módulos da zona do logo concorde com a arte.
+ * 2. **Meio-tom (halftone, Chu et al., SIGGRAPH Asia 2013).** O leitor só
+ *    amostra o CENTRO de cada módulo. A zona do logo é desenhada como arte —
+ *    pílulas coral em vetor sobre branco — e cada módulo que ainda discorda
+ *    vira um ponto no centro, da cor que o dado pede. Assim a marca pode ser
+ *    grande e centrada mesmo onde a URL impede os dados de obedecer.
+ *
+ * A trava de segurança é o `damage`: os pontos só podem gastar até 25% da
+ * correção de erro de cada bloco (`MAX_DAMAGE`), mesmo no pior caso de o
+ * leitor errar todos. Entre as composições que passam, vence a de maior nota:
+ * `layoutScore` menos o custo dos pontos. Busca em L, M e Q, versões 4 a 6 (da 7 em diante há um
+ * padrão de alinhamento no centro), podando o que já não bate a melhor nota.
+ */
+export function encodeWithLogo(url: string, free: FreeBits = 'padding'): QrSymbol {
+  const segments = urlSegments(free === 'fragment' ? `${url}#` : url);
+  // o que o leitor devolve: domínio em maiúsculas, caminho intacto
+  const readable = segments.map((seg) => seg.data).join('');
+  // Todas as composições possíveis, da maior nota teórica para a menor. Assim
+  // a primeira que passa na trava já costuma ser a vencedora, e o resto é
+  // podado sem resolver nada.
+  interface Candidate {
+    ecc: EccLevel;
+    ver: number;
+    barW: number;
+    gap: number;
+    dx: number;
+    dy: number;
+    upper: number;
+  }
+  const candidates: Candidate[] = [];
+  const messages = new Map<string, { msg: Message; base: Grid; prepared: Prepared | null }>();
+  for (const ecc of ['L', 'M', 'Q'] as const) {
+    for (let ver = 4; ver <= 6; ver++) {
+      const msg = buildMessage(segments, ver, ecc, free);
       if (!msg) continue;
       const base = functionGrid(ver, ecc, 0);
-      const prepared = prepare(ver, ecc, msg, base);
-      for (const dx of [0, -1, 1, -2]) {
-        const targets = logoTargets(base, dx);
-        if (msg.freeCount < targets.length * 1.5) break;
-        const symbol = paint(url, prepared, targets);
-        const ratio = symbol.logoHit / symbol.logoTotal;
-        if (ratio >= GOOD_ENOUGH) return symbol;
-        if (!best || ratio > best.logoHit / best.logoTotal) best = symbol;
+      messages.set(`${ecc}${ver}`, { msg, base, prepared: null });
+      for (const [barW, gap] of LOGO_SPECS) {
+        const extent = barW * 3 + gap * 2;
+        // mesma lição das barras de 5: acima de ~45% do lado, a área coral
+        // começa a custar leitura de longe (medido com a URL de dev, versão 4)
+        if (extent / base.size > MAX_EXTENT) continue;
+        for (const [dx, dy] of OFFSETS) {
+          // só a geometria: montar os alvos é caro e fica para quem for avaliado
+          const x0 = Math.floor((base.size - extent) / 2) + dx;
+          const y0 = Math.floor((base.size - extent) / 2) + dy;
+          const offX = x0 + extent / 2 - base.size / 2;
+          const offY = y0 + extent / 2 - base.size / 2;
+          const upper = layoutScore({ extent, offX, offY }, base.size, ecc);
+          candidates.push({ ecc, ver, barW, gap, dx, dy, upper });
+        }
       }
     }
   }
-  if (best && best.logoHit / best.logoTotal >= ACCEPTABLE) return best;
-  return encodeText(url, 'M');
+  candidates.sort((a, b) => b.upper - a.upper);
+
+  let best: QrSymbol | null = null;
+  let bestScore = -Infinity;
+  for (const { ecc, ver, barW, gap, dx, dy, upper } of candidates) {
+    if (upper <= bestScore) break;
+    const entry = messages.get(`${ecc}${ver}`) as { msg: Message; base: Grid; prepared: Prepared | null };
+    const layout = logoTargets(entry.base, dx, dy, barW, gap);
+    if (!layout) continue;
+    entry.prepared ??= prepare(ver, ecc, entry.msg, entry.base);
+    // Triagem com 1 máscara. Trocar de máscara melhora dano e pontos em ~30%,
+    // não em 2× — o que já está longe com a máscara 0 não vale as outras 7.
+    const quick = paint(readable, entry.prepared, layout.targets, free, 1);
+    if (quick.damage > MAX_DAMAGE + 0.4) continue;
+    if (upper - (quick.logoTotal - quick.logoHit) * DOT_COST * 0.6 <= bestScore) continue;
+    const symbol = paint(readable, entry.prepared, layout.targets, free);
+    if (symbol.damage > MAX_DAMAGE) continue;
+    const score = upper - (symbol.logoTotal - symbol.logoHit) * DOT_COST;
+    if (score > bestScore) {
+      symbol.logoBars = layout.bars;
+      best = symbol;
+      bestScore = score;
+    }
+  }
+  return best ?? encodeText(url, 'M');
 }
 
 interface Prepared {
@@ -764,13 +959,14 @@ function prepare(ver: number, ecc: EccLevel, msg: Message, base: Grid): Prepared
   return { ver, ecc, msg, base, layout, forms, cellToBit, words };
 }
 
-function paint(url: string, prep: Prepared, targets: Target[]): QrSymbol {
+function paint(url: string, prep: Prepared, targets: Target[], free: FreeBits, masks = 8): QrSymbol {
   const { ver, ecc, msg, base, layout, forms, cellToBit, words } = prep;
   const n = msg.freeCount;
   const seed = hashText(url);
 
-  let best: { grid: Grid; mask: number; x: Uint8Array; hitCount: number; score: number } | null = null;
-  for (let mask = 0; mask < 8; mask++) {
+  let best: { grid: Grid; mask: number; x: Uint8Array; hitCount: number; hit: number; pen: number } | null =
+    null;
+  for (let mask = 0; mask < masks; mask++) {
     const forced: number[] = [];
     let x = solve(forms, cellToBit, targets, mask, base.size, n, words, seed, forced);
     for (let round = 0; round < 12; round++) {
@@ -790,9 +986,15 @@ function paint(url: string, prep: Prepared, targets: Target[]): QrSymbol {
         hitCount++;
       }
     }
-    // desenho primeiro; entre máscaras que o desenham igual, a de menor penalidade
-    const score = hit * 10_000 - penalty(grid);
-    if (!best || score > best.score) best = { grid, mask, x, hitCount, score };
+    // desenho primeiro; entre máscaras que o desenham igual, a de menor
+    // penalidade (calculada só no empate — é cara)
+    if (!best || hit > best.hit) {
+      best = { grid, mask, x, hitCount, hit, pen: -1 };
+    } else if (hit === best.hit) {
+      if (best.pen < 0) best.pen = penalty(best.grid);
+      const pen = penalty(grid);
+      if (pen < best.pen) best = { grid, mask, x, hitCount, hit, pen };
+    }
     if (hitCount === targets.length) break;
   }
   if (!best) return encodeText(url, 'M');
@@ -800,12 +1002,19 @@ function paint(url: string, prep: Prepared, targets: Target[]): QrSymbol {
 
   const role = new Uint8Array(chosen.grid.size * chosen.grid.size);
   for (let i = 0; i < role.length; i++) role[i] = chosen.grid.isFunction[i] ? ROLE_FUNCTION : ROLE_DATA;
+  const touched = layout.dataLen.map(() => new Set<number>());
   for (const t of targets) {
-    if (chosen.grid.dark[t.cell] !== t.dark) continue;
     role[t.cell] = t.dark ? ROLE_LOGO : ROLE_HALO;
+    if (chosen.grid.dark[t.cell] === t.dark) continue;
+    const bit = cellToBit[t.cell];
+    if (bit < 0) continue;
+    const [blk, idx] = layout.stream[bit >>> 3];
+    touched[blk].add(idx);
   }
+  const correctable = Math.floor(layout.eccLen / 2);
+  const damage = Math.max(...touched.map((set) => set.size / correctable));
 
-  // o texto que o leitor vai ver: URL + "#" + dígitos
+  // o texto que o leitor vai ver: a URL (e, no modo fragmento, "#" + dígitos)
   let digits = '';
   const bytesOut = messageBytes(msg, chosen.x);
   const bitAt = (i: number) => (bytesOut[i >>> 3] >>> (7 - (i & 7))) & 1;
@@ -822,8 +1031,10 @@ function paint(url: string, prep: Prepared, targets: Target[]): QrSymbol {
     size: chosen.grid.size,
     modules: chosen.grid.dark,
     role,
-    text: `${url}#${digits}`,
+    text: free === 'fragment' ? `${url}${digits}` : url, // no modo fragmento, `url` já termina em "#"
     logoHit: chosen.hitCount,
     logoTotal: targets.length,
+    logoBars: null,
+    damage,
   };
 }

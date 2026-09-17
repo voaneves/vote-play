@@ -16,7 +16,7 @@ Tudo o que a plateia e o artista veem como identidade do produto:
 | Imagem de compartilhamento | `public/og.png` | Composição própria com o símbolo e a tipografia do sistema |
 | Paleta, contraste e brandkit | `brand/`, `src/index.css` | Tokens próprios, auditados por `brand/colors.py` |
 | Interface, textos, arquitetura, schema do banco | `src/`, `supabase/` | Código próprio |
-| Gerador de QR Code com o símbolo desenhado pelos dados | `src/lib/qr/qrArt.ts` | Código próprio. A ideia de escolher bits livres por álgebra linear para desenhar com os módulos foi publicada por Russ Cox ([QArt](https://research.swtch.com/qart), 2012) — técnica, não código |
+| Gerador de QR Code com o símbolo desenhado pelos dados | `src/lib/qr/qrArt.ts` | Código próprio. Combina duas técnicas publicadas — técnica, não código: escolher bits livres por álgebra linear para desenhar com os módulos (Russ Cox, [QArt](https://research.swtch.com/qart), 2012) e meio-tom com amostragem no centro do módulo (Chu et al., [Halftone QR Codes](https://dl.acm.org/doi/10.1145/2508363.2508408), SIGGRAPH Asia 2013) |
 
 **Tipografia:** o app não embute fonte de terceiros; usa a pilha de fontes do sistema do
 aparelho. O brandkit em PDF e a imagem de compartilhamento usam fontes livres —
