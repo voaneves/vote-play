@@ -61,6 +61,8 @@ function TelaoScreen() {
   }
 
   const ranked = [...(round?.candidates ?? [])].sort((a, b) => b.weight - a.weight);
+  // só há líder quando alguém votou (vale para a rodada e para a fila)
+  const lead = topo.length > 0 ? (topo[0]?.weight ?? 0) > 0 : (ranked[0]?.weight ?? 0) > 0;
 
   return (
     <main className="grid min-h-[100dvh] gap-8 p-8 lg:grid-cols-[420px_1fr] lg:p-12">
@@ -127,27 +129,34 @@ function TelaoScreen() {
           <ol className="space-y-4">
             {topo.map((song, index) => {
               return (
-                <li key={song.id} className="vp-surface relative overflow-hidden px-6 py-5">
+                <li
+                  key={song.id}
+                  className={cn('vp-surface relative overflow-hidden', leaderRow(index === 0 && lead))}
+                >
                   <div
                     aria-hidden
                     className={cn(
                       'absolute inset-y-0 left-0 transition-[width] duration-700 ease-out',
-                      index === 0 ? 'bg-primary/25' : 'bg-muted/40',
+                      index === 0 && lead ? 'bg-primary/30' : 'bg-muted/40',
                     )}
                     style={{ width: `${Math.round((song.weight / topoMax) * 100)}%` }}
                   />
                   <div className="relative flex items-center gap-6">
-                    <span className="tabular text-4xl font-bold text-muted-foreground">
+                    <span className={cn('tabular font-bold text-muted-foreground', index === 0 && lead ? 'text-5xl' : 'text-3xl')}>
                       {index + 1}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-3xl font-semibold">{song.title}</span>
-                      <span className="block truncate text-xl text-muted-foreground">
+                      <span className={cn('block truncate font-semibold', index === 0 && lead ? 'text-5xl' : 'text-2xl')}>
+                        {song.title}
+                      </span>
+                      <span className={cn('block truncate text-muted-foreground', index === 0 && lead ? 'text-2xl' : 'text-lg')}>
                         {song.status === 'queued' ? 'Escolhida na rodada · ' : ''}
                         {song.artistName}
                       </span>
                     </span>
-                    <span className="tabular text-4xl font-bold">{song.weight}</span>
+                    <span className={cn('tabular font-bold', index === 0 && lead ? 'text-6xl' : 'text-3xl')}>
+                      {song.weight}
+                    </span>
                   </div>
                 </li>
               );
@@ -160,29 +169,31 @@ function TelaoScreen() {
               return (
                 <li
                   key={candidate.id}
-                  className="vp-surface relative overflow-hidden px-6 py-5"
+                  className={cn('vp-surface relative overflow-hidden', leaderRow(index === 0 && lead))}
                 >
                   <div
                     aria-hidden
                     className={cn(
                       'absolute inset-y-0 left-0 transition-[width] duration-700 ease-out',
-                      index === 0 ? 'bg-primary/25' : 'bg-muted/40',
+                      index === 0 && lead ? 'bg-primary/30' : 'bg-muted/40',
                   )}
                   style={{ width: `${share}%` }}
                 />
                 <div className="relative flex items-center gap-6">
-                  <span className="tabular text-4xl font-bold text-muted-foreground">
+                  <span className={cn('tabular font-bold text-muted-foreground', index === 0 && lead ? 'text-5xl' : 'text-3xl')}>
                     {index + 1}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-3xl font-semibold">
+                    <span className={cn('block truncate font-semibold', index === 0 && lead ? 'text-5xl' : 'text-2xl')}>
                       {candidate.title}
                     </span>
-                    <span className="block truncate text-xl text-muted-foreground">
+                    <span className={cn('block truncate text-muted-foreground', index === 0 && lead ? 'text-2xl' : 'text-lg')}>
                       {candidate.artistName}
                     </span>
                   </span>
-                  <span className="tabular text-4xl font-bold">{share}%</span>
+                  <span className={cn('tabular font-bold', index === 0 && lead ? 'text-7xl' : 'text-3xl')}>
+                    {share}%
+                  </span>
                 </div>
               </li>
             );
@@ -192,4 +203,14 @@ function TelaoScreen() {
       </section>
     </main>
   );
+}
+
+/**
+ * Hierarquia do placar (plan.md, 5.3): a líder muito maior que as outras, para
+ * quem olha do fundo do bar ler "quem está ganhando" num relance. O número
+ * grande é o percentual — peso não significa nada para quem acabou de chegar.
+ * Sem voto nenhum não há líder: destacar a 1ª da lista a 0% seria mentir.
+ */
+function leaderRow(isLeader: boolean): string {
+  return isLeader ? 'px-8 py-8 ring-2 ring-primary/60' : 'px-6 py-4';
 }

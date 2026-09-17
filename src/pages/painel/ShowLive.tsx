@@ -20,6 +20,7 @@ import {
   closeRoundVoting,
   currentRound,
   getShow,
+  getShowSummary,
   listRoundCandidates,
   listShowSongs,
   listSongs,
@@ -215,6 +216,30 @@ export default function ShowLive() {
         </Button>
       </nav>
 
+      {/*
+        O show ao vivo dividido por assunto (auditoria 9.4, U9): no palco, o
+        artista pula direto para a fila em vez de rolar três telas. Âncoras, não
+        abas — tudo continua numa página só, e o rolar ainda funciona.
+      */}
+      <nav
+        aria-label="Seções do show"
+        className="sticky top-0 z-10 -mx-4 mt-4 border-b border-border bg-background/95 px-4 backdrop-blur"
+      >
+        <ul className="flex gap-1 overflow-x-auto py-1">
+          {SECTIONS.map((section) => (
+            <li key={section.id}>
+              <a
+                href={`#${section.id}`}
+                className="vp-focus inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                {section.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <div id="ao-vivo" className="scroll-mt-16">
       {/* controle do show */}
       <section className="vp-surface mt-5 flex flex-wrap items-center gap-2 p-4">
         <span className="mr-auto text-sm text-muted-foreground">
@@ -257,8 +282,8 @@ export default function ShowLive() {
       </section>
 
       {/* rodada */}
-      <section className="vp-surface mt-4 p-5">
-        <h2 className="font-semibold">Rodada</h2>
+      <section className="vp-surface mt-4 border-primary/40 p-5">
+        <h2 className="text-lg font-semibold">Rodada</h2>
 
         {active ? (
           <div className="mt-3">
@@ -302,18 +327,43 @@ export default function ShowLive() {
                 })}
               </ol>
             )}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {round.data!.status === 'open' && (
-                <Button variant="secondary" onClick={() => closeVoting.mutate(round.data!.id)}>
-                  Encerrar votação agora
+            {/*
+              Uma ação primária por estado (auditoria 9.4, U4). Com a votação
+              aberta, a ação do momento é encerrar — apurar direto força o fim e
+              anula Pix pendente, então fica disponível, mas pequena.
+            */}
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+              {round.data!.status === 'open' ? (
+                <>
+                  <Button
+                    className="h-14 text-base sm:min-w-64"
+                    disabled={closeVoting.isPending}
+                    onClick={() => closeVoting.mutate(round.data!.id)}
+                  >
+                    {closeVoting.isPending ? 'Encerrando…' : 'Encerrar votação'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    disabled={settle.isPending}
+                    onClick={() => settle.mutate(round.data!.id)}
+                  >
+                    Apurar já, sem esperar
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  className="h-14 text-base sm:min-w-64"
+                  disabled={settle.isPending}
+                  onClick={() => settle.mutate(round.data!.id)}
+                >
+                  {settle.isPending ? 'Apurando…' : 'Apurar agora'}
                 </Button>
               )}
-              <Button onClick={() => settle.mutate(round.data!.id)}>Apurar e eleger</Button>
             </div>
             {round.data!.status === 'closing' && (
               <p className="mt-3 text-xs text-muted-foreground">
-                Aguardando os Pix pendentes resolverem. "Apurar" força o fechamento e anula os
-                que não pagaram.
+                Aguardando os Pix pendentes resolverem. "Apurar agora" força o fechamento e anula
+                os que não pagaram.
               </p>
             )}
           </div>
@@ -356,8 +406,13 @@ export default function ShowLive() {
             )}
 
             <Button
-              className="mt-4"
-              disabled={selected.length < 2 || selected.length > 8 || open.isPending}
+              className="mt-5 h-14 w-full text-base sm:w-auto sm:min-w-64"
+              disabled={
+                selected.length < 2 ||
+                selected.length > 8 ||
+                open.isPending ||
+                show.data.status !== 'live'
+              }
               onClick={() => open.mutate()}
             >
               {open.isPending
@@ -373,9 +428,16 @@ export default function ShowLive() {
         )}
       </section>
 
-      <QueueCard show={show.data} onChanged={refresh} />
+      </div>
 
+      <div id="fila" className="scroll-mt-16">
+        <QueueCard show={show.data} onChanged={refresh} />
+      </div>
+
+      <div id="metricas" className="scroll-mt-16">
+      <SectionTitle>Métricas</SectionTitle>
       <ShowSummaryCard showId={id} live={show.data.status === 'live'} />
+      <MetricsPlaceholder showId={id} voteMode={show.data.vote_mode} />
       <SuspiciousSessionsCard showId={id} />
 
       {/* funil e lista de participantes — só fazem sentido no modo Instagram */}
@@ -470,6 +532,10 @@ export default function ShowLive() {
         </section>
       )}
 
+      </div>
+
+      <div id="configuracao" className="scroll-mt-16">
+      <SectionTitle>Configuração</SectionTitle>
       {/* repertório do show */}
       <section className="vp-surface mt-4 p-5">
         <h2 className="font-semibold">Repertório deste show</h2>
@@ -500,6 +566,37 @@ export default function ShowLive() {
           ))}
         </ul>
       </section>
+      </div>
     </>
+  );
+}
+
+const SECTIONS = [
+  { id: 'ao-vivo', label: 'Ao vivo' },
+  { id: 'fila', label: 'Fila' },
+  { id: 'metricas', label: 'Métricas' },
+  { id: 'configuracao', label: 'Configuração' },
+] as const;
+
+function SectionTitle({ children }: { children: string }) {
+  return (
+    <h2 className="mt-8 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </h2>
+  );
+}
+
+/**
+ * Os cartões de métricas só aparecem quando têm o que dizer (ver cada um). Sem
+ * isto, a âncora "Métricas" levaria a um título solto sobre nada.
+ */
+function MetricsPlaceholder({ showId, voteMode }: { showId: string; voteMode: string }) {
+  const summary = useQuery({ queryKey: ['summary', showId], queryFn: () => getShowSummary(showId) });
+  if (summary.isLoading || (summary.data?.totals.rounds ?? 0) > 0) return null;
+  return (
+    <p className="vp-surface mt-4 p-5 text-sm text-muted-foreground">
+      O resumo da noite aparece depois da primeira rodada apurada
+      {voteMode === 'instagram' ? ', e o funil do Instagram quando alguém entrar.' : '.'}
+    </p>
   );
 }

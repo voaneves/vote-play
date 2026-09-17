@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/features/auth/context';
 import { createShow, listShows } from '@/lib/painel/queries';
@@ -23,6 +24,11 @@ export default function Shows() {
   const [instagramHandle, setInstagramHandle] = useState('');
 
   const shows = useQuery({ queryKey: ['shows'], queryFn: listShows });
+  // Lista primeiro, formulário sob demanda (auditoria 9.4, U8): no celular, o
+  // show de hoje ficava abaixo da dobra, atrás de um formulário usado uma vez
+  // por semana. Quem ainda não tem show vê o formulário aberto.
+  const [creating, setCreating] = useState(false);
+  const formOpen = creating || shows.data?.length === 0;
 
   const create = useMutation({
     mutationFn: () =>
@@ -37,6 +43,7 @@ export default function Shows() {
       setTitle('');
       setVenue('');
       setInstagramHandle('');
+      setCreating(false);
       void queryClient.invalidateQueries({ queryKey: ['shows'] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -57,10 +64,27 @@ export default function Shows() {
 
   return (
     <>
-      <h1 className="text-2xl font-bold">Seus shows</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="mr-auto text-2xl font-bold">Seus shows</h1>
+        {!formOpen && (
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" aria-hidden /> Novo show
+          </Button>
+        )}
+      </div>
 
-      <form onSubmit={handleSubmit} className="vp-surface mt-5 space-y-3 p-4">
-        <p className="text-sm font-medium">Novo show</p>
+      {formOpen && (
+      <form onSubmit={handleSubmit} className="vp-surface mt-5 space-y-3 p-4" aria-labelledby="novo-show">
+        <div className="flex items-center gap-2">
+          <h2 id="novo-show" className="mr-auto text-sm font-medium">
+            {shows.data?.length === 0 ? 'Crie o seu primeiro show' : 'Novo show'}
+          </h2>
+          {(shows.data?.length ?? 0) > 0 && (
+            <Button type="button" variant="ghost" onClick={() => setCreating(false)}>
+              Cancelar
+            </Button>
+          )}
+        </div>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -139,16 +163,12 @@ export default function Shows() {
           O código de entrada é gerado pelo banco, com 6 caracteres sem letras ambíguas.
         </p>
       </form>
+      )}
 
-      <section className="mt-8 space-y-2">
+      <section className="mt-5 space-y-2" aria-label="Lista de shows">
         {shows.isLoading && <p className="text-muted-foreground">Carregando…</p>}
         {shows.isError && (
           <p className="text-destructive">{(shows.error as Error).message}</p>
-        )}
-        {shows.data?.length === 0 && (
-          <div className="vp-surface p-8 text-center text-muted-foreground">
-            Nenhum show ainda. Crie o primeiro acima.
-          </div>
         )}
         {shows.data?.map((show) => (
           <Link
@@ -175,6 +195,7 @@ export default function Shows() {
           </Link>
         ))}
       </section>
-    </>
+
+          </>
   );
 }

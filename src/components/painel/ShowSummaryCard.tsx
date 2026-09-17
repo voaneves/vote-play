@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { downloadCsv, slugify, toCsv } from '@/lib/csv';
 import { formatCents } from '@/lib/format';
 import { getShowSummary, type SummaryRoundRow } from '@/lib/painel/queries';
+import { VotesPerRoundChart } from '@/components/painel/VotesPerRoundChart';
 
 /**
  * O que aconteceu na noite.
@@ -81,6 +82,8 @@ export function ShowSummaryCard({ showId, live }: { showId: string; live: boolea
           <Stat label="com @" value={totals.withInstagram} />
         )}
       </dl>
+
+      <VotesPerRoundChart rounds={settled} />
 
       <ol className="mt-5 space-y-3">
         {settled.map((round) => (
