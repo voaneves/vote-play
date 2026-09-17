@@ -1,8 +1,9 @@
 # Créditos, autoria e licenças
 
-O Vote Play é obra de **Victor Neves** ([voaneves.com](https://voaneves.com)). Este arquivo
-separa, sem ambiguidade, o que é autoral do que é código aberto de terceiros — e diz de
-onde veio cada peça.
+O Vote Play foi idealizado, desenhado e desenvolvido por **Victor Neves**
+([voaneves.com](https://voaneves.com)), único autor e titular de toda a propriedade
+intelectual do projeto — produto, marca, código e conteúdo. Este arquivo separa o que é
+autoral do que é código aberto de terceiros usado sob licença.
 
 ## O que é autoral
 
@@ -65,14 +66,6 @@ Vite, Tailwind CSS, TypeScript (Apache-2.0), ESLint, typescript-eslint,
 
 Supabase (banco, autenticação, tempo real) e GitHub Pages (hospedagem). São serviços
 contratados, não código incorporado.
-
-## Origem do projeto
-
-O repositório começou, em agosto de 2025, a partir de um protótipo gerado no Lovable. Esse
-protótipo foi **inteiramente substituído**: nenhum arquivo, componente, ícone, texto ou
-configuração daquela origem permanece na árvore atual (`plan.md`, seções 12.2 e 12.4). O
-histórico antigo do git ainda contém os arquivos do protótipo até que a limpeza de histórico
-seja aplicada.
 
 Para manter esta lista honesta ao adicionar uma dependência: `npm ls --depth=0` e a licença
 de cada pacote novo entram aqui no mesmo commit.

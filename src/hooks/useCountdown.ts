@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 
 /**
  * Cronômetro baseado no relógio do SERVIDOR.
- * O protótipo usava um contador local por celular — o que dessincroniza toda a plateia.
- * Aqui a fonte da verdade é `closesAt`, corrigido pelo offset medido no realtime.
+ * Contador local por celular dessincronizaria a plateia inteira; a fonte da verdade
+ * é `closesAt`, corrigido pelo offset do relógio do servidor.
  *
  * `secondsLeft` é derivado a cada render em vez de guardado em estado: assim uma mudança
  * de rodada aparece na hora, sem o render em cascata de um setState dentro do efeito.

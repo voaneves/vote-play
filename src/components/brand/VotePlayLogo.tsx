@@ -4,8 +4,6 @@ import { cn } from '@/lib/utils';
  * O símbolo do Vote Play: três barras subindo — o placar do show em miniatura.
  * Mesmo desenho do `public/favicon.svg` e do `brand/logo/simbolo.svg`, para a
  * marca que aparece na aba ser a mesma que aparece na tela.
- *
- * Substitui o ícone genérico de ingresso que a entrada herdou do protótipo.
  */
 export function VotePlayLogo({
   className,

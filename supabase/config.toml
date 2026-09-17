@@ -13,8 +13,8 @@ extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [auth]
-site_url = "http://localhost:5173/vote-play/"
-additional_redirect_urls = ["http://localhost:5173/vote-play/painel"]
+site_url = "http://localhost:8080/vote-play/"
+additional_redirect_urls = ["http://localhost:8080/vote-play/painel"]
 jwt_expiry = 3600
 enable_signup = true
 

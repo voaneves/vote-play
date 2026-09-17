@@ -93,14 +93,9 @@ export default defineConfig(({ mode }) => {
      */
     base: '/vote-play/',
 
-    /**
-     * Porta padrão do próprio Vite (5173). A 8080 com `host: '::'` era a
-     * configuração do scaffold de origem; `host: true` mantém o que importa
-     * dela — abrir o app no celular pela rede local para testar um show.
-     */
     server: {
-      host: true,
-      port: 5173,
+      host: '::',
+      port: 8080,
     },
 
     plugins: [react(), tailwindcss()],

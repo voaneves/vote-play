@@ -4,8 +4,8 @@ Victor Neves (voaneves.com) · © 2026. Todos os direitos reservados.
 
 Por que um script, e não arquivos soltos: cada ícone do site sai daqui, do
 mesmo desenho e das mesmas cores do brandkit (`brand/logo/simbolo.svg`). Nada
-vem de gerador online, template de scaffold ou banco de ícones — e quem quiser
-conferir a origem de um PNG roda o script e compara.
+vem de gerador online, template ou banco de ícones — e quem quiser conferir a
+origem de um PNG roda o script e compara.
 
 Uso (precisa de Pillow):  python brand/gerar_icones.py
 Escreve em public/: favicon.svg, favicon.ico, icon-180.png, icon-192.png,
