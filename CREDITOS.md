@@ -16,6 +16,7 @@ Tudo o que a plateia e o artista veem como identidade do produto:
 | Imagem de compartilhamento | `public/og.png` | Composição própria com o símbolo e a tipografia do sistema |
 | Paleta, contraste e brandkit | `brand/`, `src/index.css` | Tokens próprios, auditados por `brand/colors.py` |
 | Interface, textos, arquitetura, schema do banco | `src/`, `supabase/` | Código próprio |
+| Gerador de QR Code com o símbolo desenhado pelos dados | `src/lib/qr/qrArt.ts` | Código próprio. A ideia de escolher bits livres por álgebra linear para desenhar com os módulos foi publicada por Russ Cox ([QArt](https://research.swtch.com/qart), 2012) — técnica, não código |
 
 **Tipografia:** o app não embute fonte de terceiros; usa a pilha de fontes do sistema do
 aparelho. O brandkit em PDF e a imagem de compartilhamento usam fontes livres —
@@ -48,7 +49,7 @@ na interface.
 | `class-variance-authority` | Apache-2.0 | https://github.com/joe-bell/cva |
 | `clsx` | MIT | https://github.com/lukeed/clsx |
 | `lucide-react` | ISC | https://github.com/lucide-icons/lucide |
-| `qrcode` | MIT | https://github.com/soldair/node-qrcode |
+| `qrcode` (só o QR do Pix) | MIT | https://github.com/soldair/node-qrcode |
 | `react`, `react-dom` | MIT | https://github.com/facebook/react |
 | `react-router-dom` | MIT | https://github.com/remix-run/react-router |
 | `sonner` | MIT | https://github.com/emilkowalski/sonner |
